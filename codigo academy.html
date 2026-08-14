@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduInclusiva AI — Adaptador de Material Educativo Inclusivo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Foco muy visible para navegación por teclado (accesibilidad) */
+    :focus-visible { outline: 4px solid #f59e0b; outline-offset: 3px; }
+    /* Modo alto contraste */
+    body.hc { background:#000 !important; color:#fff !important; }
+    body.hc .card { background:#000 !important; border-color:#fff !important; }
+    body.hc .muted { color:#fff !important; }
+    html { scroll-behavior: smooth; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen" style="font-size:18px">
+
+  <!-- ====== BARRA DE ACCESIBILIDAD ====== -->
+  <div class="bg-slate-900 text-white">
+    <div class="max-w-4xl mx-auto px-4 py-2 flex flex-wrap gap-2 items-center justify-end text-sm">
+      <span class="mr-auto font-semibold">Accesibilidad:</span>
+      <button id="btnFontMinus" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600" aria-label="Reducir tamaño de letra">A−</button>
+      <button id="btnFontPlus" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600" aria-label="Aumentar tamaño de letra">A+</button>
+      <button id="btnContrast" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600" aria-pressed="false">Alto contraste</button>
+      <button id="btnStopAll" class="px-3 py-2 rounded bg-red-600 hover:bg-red-500" aria-label="Detener toda la voz">■ Detener voz</button>
+    </div>
+  </div>
+
+  <main class="max-w-4xl mx-auto px-4 py-8">
+
+    <!-- ====== ENCABEZADO ====== -->
+    <header class="text-center mb-8">
+      <h1 class="text-4xl font-extrabold tracking-tight">📚 EduInclusiva AI</h1>
+      <p class="muted text-slate-600 mt-2 text-lg">
+        Sube una foto de tu guía o texto de clase y la convertimos en formatos accesibles:
+        audiodescripción, lectura fácil y resumen.
+      </p>
+    </header>
+
+    <!-- ====== PASO 1: SUBIR IMAGEN ====== -->
+    <section class="card bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
+      <h2 class="text-2xl font-bold mb-4">1 · Sube tu material</h2>
+
+      <label for="fileInput"
+             class="block cursor-pointer border-4 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 hover:bg-indigo-50 transition">
+        <span class="text-6xl block mb-3" aria-hidden="true">📷</span>
+        <span class="text-xl font-semibold">Toca aquí para tomar una foto o subir una imagen</span>
+        <span class="muted block text-slate-500 mt-1">Formatos: JPG, PNG · Una guía, página o texto de clase</span>
+      </label>
+      <input id="fileInput" type="file" accept="image/*" capture="environment" class="sr-only" aria-describedby="fileHelp" />
+      <p id="fileHelp" class="sr-only">Selecciona una imagen que contenga el texto que quieres adaptar.</p>
+
+      <div id="preview" class="mt-4 hidden">
+        <img id="previewImg" alt="Vista previa de la imagen seleccionada" class="max-h-64 mx-auto rounded-lg border" />
+        <p id="fileName" class="muted text-center text-slate-500 mt-2 text-sm"></p>
+      </div>
+    </section>
+
+    <!-- ====== PASO 2: OPCIONES ====== -->
+    <section class="card bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
+      <h2 class="text-2xl font-bold mb-4">2 · ¿Qué necesitas?</h2>
+
+      <fieldset>
+        <legend class="font-semibold mb-2">Formatos a generar</legend>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="flex items-center gap-3 border rounded-lg p-3 cursor-pointer">
+            <input type="checkbox" class="modo w-6 h-6" value="audiodescripcion" checked />
+            <span>🔊 Audiodescripción (voz)</span>
+          </label>
+          <label class="flex items-center gap-3 border rounded-lg p-3 cursor-pointer">
+            <input type="checkbox" class="modo w-6 h-6" value="lectura_facil" checked />
+            <span>🟢 Lectura fácil</span>
+          </label>
+          <label class="flex items-center gap-3 border rounded-lg p-3 cursor-pointer">
+            <input type="checkbox" class="modo w-6 h-6" value="transcripcion" checked />
+            <span>📝 Transcripción limpia</span>
+          </label>
+          <label class="flex items-center gap-3 border rounded-lg p-3 cursor-pointer">
+            <input type="checkbox" class="modo w-6 h-6" value="resumen" checked />
+            <span>📌 Resumen estructurado</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="mt-4">
+        <label for="idioma" class="font-semibold block mb-1">Idioma de salida</label>
+        <select id="idioma" class="border-2 rounded-lg p-3 text-lg w-full sm:w-64">
+          <option value="es" selected>Español</option>
+          <option value="en">Inglés</option>
+          <option value="pt">Portugués</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- ====== BOTÓN ADAPTAR ====== -->
+    <button id="btnAdaptar"
+            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-2xl font-bold py-6 rounded-2xl shadow-lg mb-6 disabled:opacity-50">
+      ✨ Adaptar material
+    </button>
+
+    <!-- ====== ESTADO / CARGA ====== -->
+    <div id="status" role="status" aria-live="polite" class="text-center text-lg font-semibold mb-6"></div>
+
+    <!-- ====== RESULTADOS ====== -->
+    <section id="resultados" class="hidden space-y-6">
+      <h2 class="text-2xl font-bold">Resultados accesibles</h2>
+
+      <!-- Audiodescripción (protagonista para discapacidad visual) -->
+      <article class="card bg-white border-2 border-indigo-200 rounded-2xl p-6 shadow-sm" data-key="guion_audiodescripcion">
+        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <h3 class="text-xl font-bold">🔊 Audiodescripción</h3>
+          <div class="flex gap-2">
+            <button class="btnEscuchar bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl text-lg font-semibold">▶ Escuchar</button>
+            <button class="btnCopiar bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-xl" aria-label="Copiar audiodescripción">Copiar</button>
+          </div>
+        </div>
+        <p class="contenido muted text-slate-700 whitespace-pre-wrap leading-relaxed"></p>
+      </article>
+
+      <!-- Lectura fácil -->
+      <article class="card bg-white border-2 border-emerald-200 rounded-2xl p-6 shadow-sm" data-key="lectura_facil">
+        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <h3 class="text-xl font-bold">🟢 Lectura fácil</h3>
+          <div class="flex gap-2">
+            <button class="btnEscuchar bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl text-lg font-semibold">▶ Escuchar</button>
+            <button class="btnCopiar bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-xl" aria-label="Copiar lectura fácil">Copiar</button>
+          </div>
+        </div>
+        <p class="contenido muted text-slate-700 whitespace-pre-wrap leading-relaxed"></p>
+      </article>
+
+      <!-- Transcripción limpia -->
+      <article class="card bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm" data-key="transcripcion_limpia">
+        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <h3 class="text-xl font-bold">📝 Transcripción limpia</h3>
+          <div class="flex gap-2">
+            <button class="btnEscuchar bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl text-lg font-semibold">▶ Escuchar</button>
+            <button class="btnCopiar bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-xl" aria-label="Copiar transcripción">Copiar</button>
+          </div>
+        </div>
+        <p class="contenido muted text-slate-700 whitespace-pre-wrap leading-relaxed"></p>
+      </article>
+
+      <!-- Resumen estructurado -->
+      <article class="card bg-white border-2 border-amber-200 rounded-2xl p-6 shadow-sm" data-key="resumen_estructurado">
+        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <h3 class="text-xl font-bold">📌 Resumen estructurado</h3>
+          <div class="flex gap-2">
+            <button class="btnEscuchar bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl text-lg font-semibold">▶ Escuchar</button>
+            <button class="btnCopiar bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-xl" aria-label="Copiar resumen">Copiar</button>
+          </div>
+        </div>
+        <ul class="contenidoLista muted list-disc pl-6 text-slate-700 space-y-1 leading-relaxed"></ul>
+      </article>
+    </section>
+
+    <footer class="muted text-center text-slate-400 text-sm mt-12">
+      EduInclusiva AI · Democratizar el aprendizaje · CoderCup 2026
+    </footer>
+  </main>
+
+  <script>
+    // ===========================================================
+    //  ⚙️  CONFIGURACIÓN — CAMBIA SOLO ESTA LÍNEA
+    //  Pega aquí la URL de PRODUCCIÓN de tu Webhook de n8n.
+    //  (En n8n: nodo Webhook → "Production URL". Para probar antes
+    //   de activar el workflow usa la "Test URL" con /webhook-test/)
+    // ===========================================================
+const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook-test/eduinclusiva";
+    // --- Estado ---
+    let imagenBase64 = null;
+    let mimeType = "image/jpeg";
+
+    // --- Utilidades DOM ---
+    const $ = (sel) => document.querySelector(sel);
+    const statusEl = $("#status");
+    const setStatus = (msg) => { statusEl.textContent = msg; };
+
+    // ===== 1. Cargar imagen y convertir a base64 =====
+    $("#fileInput").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      mimeType = file.type || "image/jpeg";
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result;                 // "data:image/jpeg;base64,XXXX"
+        imagenBase64 = dataUrl.split(",")[1];          // nos quedamos solo con XXXX
+        $("#previewImg").src = dataUrl;
+        $("#fileName").textContent = file.name;
+        $("#preview").classList.remove("hidden");
+        setStatus("Imagen lista. Pulsa «Adaptar material».");
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // ===== 2. Enviar al webhook de n8n =====
+    $("#btnAdaptar").addEventListener("click", async () => {
+      if (!imagenBase64) { setStatus("⚠️ Primero sube una imagen."); return; }
+
+      const modos = Array.from(document.querySelectorAll(".modo:checked"))
+                         .map(c => c.value).join(",") || "todos";
+      const idioma = $("#idioma").value;
+
+      $("#btnAdaptar").disabled = true;
+      $("#resultados").classList.add("hidden");
+      setStatus("⏳ Adaptando tu material… esto tarda unos segundos.");
+
+      try {
+        const resp = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imagen_base64: imagenBase64, mime_type: mimeType, idioma, modos })
+        });
+        if (!resp.ok) throw new Error("Servidor respondió " + resp.status);
+        const data = await resp.json();
+
+        if (data.ok === false) {
+          setStatus("⚠️ " + (data.error || "No se pudo leer texto en la imagen."));
+          $("#btnAdaptar").disabled = false;
+          return;
+        }
+        pintarResultados(data);
+        setStatus("✅ ¡Listo! Tu material adaptado está abajo.");
+      } catch (err) {
+        setStatus("❌ Error de conexión: " + err.message + ". Revisa la URL del webhook.");
+      } finally {
+        $("#btnAdaptar").disabled = false;
+      }
+    });
+
+    // ===== 3. Pintar resultados en las tarjetas =====
+    function pintarResultados(data) {
+      document.querySelectorAll("article[data-key]").forEach(card => {
+        const key = card.dataset.key;
+        const valor = data[key];
+        if (key === "resumen_estructurado") {
+          const ul = card.querySelector(".contenidoLista");
+          ul.innerHTML = "";
+          (Array.isArray(valor) ? valor : [valor || "—"]).forEach(item => {
+            const li = document.createElement("li");
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+        } else {
+          card.querySelector(".contenido").textContent = valor || "—";
+        }
+      });
+      $("#resultados").classList.remove("hidden");
+      $("#resultados").scrollIntoView({ behavior: "smooth" });
+    }
+
+    // ===== 4. Lectura por voz (Web Speech API — sin costo, en el navegador) =====
+    function hablar(texto, idioma) {
+      if (!("speechSynthesis" in window)) {
+        setStatus("Tu navegador no soporta lectura por voz.");
+        return;
+      }
+      window.speechSynthesis.cancel();               // corta lo anterior
+      const u = new SpeechSynthesisUtterance(texto);
+      u.lang = idioma === "en" ? "en-US" : idioma === "pt" ? "pt-BR" : "es-ES";
+      u.rate = 0.95;                                  // un poco más lento = más claro
+      window.speechSynthesis.speak(u);
+    }
+
+    // Botones "Escuchar" de cada tarjeta
+    document.querySelectorAll(".btnEscuchar").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const card = btn.closest("article");
+        const lista = card.querySelector(".contenidoLista");
+        const texto = lista
+          ? Array.from(lista.querySelectorAll("li")).map(li => li.textContent).join(". ")
+          : card.querySelector(".contenido").textContent;
+        if (texto && texto !== "—") hablar(texto, $("#idioma").value);
+      });
+    });
+
+    // Botones "Copiar"
+    document.querySelectorAll(".btnCopiar").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const card = btn.closest("article");
+        const lista = card.querySelector(".contenidoLista");
+        const texto = lista
+          ? Array.from(lista.querySelectorAll("li")).map(li => "• " + li.textContent).join("\n")
+          : card.querySelector(".contenido").textContent;
+        navigator.clipboard.writeText(texto).then(() => {
+          const original = btn.textContent;
+          btn.textContent = "✓ Copiado";
+          setTimeout(() => btn.textContent = original, 1500);
+        });
+      });
+    });
+
+    // ===== 5. Controles de accesibilidad =====
+    $("#btnStopAll").addEventListener("click", () => window.speechSynthesis.cancel());
+
+    let fontSize = 18;
+    $("#btnFontPlus").addEventListener("click", () => {
+      fontSize = Math.min(fontSize + 2, 30);
+      document.body.style.fontSize = fontSize + "px";
+    });
+    $("#btnFontMinus").addEventListener("click", () => {
+      fontSize = Math.max(fontSize - 2, 14);
+      document.body.style.fontSize = fontSize + "px";
+    });
+    $("#btnContrast").addEventListener("click", () => {
+      const on = document.body.classList.toggle("hc");
+      $("#btnContrast").setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  </script>
+</body>
+</html>
