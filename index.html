@@ -6,7 +6,6 @@
   <title>EduInclusiva AI — Adaptador de Material Educativo Inclusivo</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Foco muy visible para navegación por teclado (accesibilidad) */
     :focus-visible { outline: 4px solid #f59e0b; outline-offset: 3px; }
     /* Modo alto contraste */
     body.hc { background:#000 !important; color:#fff !important; }
@@ -16,8 +15,6 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen" style="font-size:18px">
-
-  <!-- ====== BARRA DE ACCESIBILIDAD ====== -->
   <div class="bg-slate-900 text-white">
     <div class="max-w-4xl mx-auto px-4 py-2 flex flex-wrap gap-2 items-center justify-end text-sm">
       <span class="mr-auto font-semibold">Accesibilidad:</span>
@@ -29,8 +26,6 @@
   </div>
 
   <main class="max-w-4xl mx-auto px-4 py-8">
-
-    <!-- ====== ENCABEZADO ====== -->
     <header class="text-center mb-8">
       <h1 class="text-4xl font-extrabold tracking-tight">📚 EduInclusiva AI</h1>
       <p class="muted text-slate-600 mt-2 text-lg">
@@ -38,8 +33,6 @@
         audiodescripción, lectura fácil y resumen.
       </p>
     </header>
-
-    <!-- ====== PASO 1: SUBIR IMAGEN ====== -->
     <section class="card bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
       <h2 class="text-2xl font-bold mb-4">1 · Sube tu material</h2>
 
@@ -57,8 +50,6 @@
         <p id="fileName" class="muted text-center text-slate-500 mt-2 text-sm"></p>
       </div>
     </section>
-
-    <!-- ====== PASO 2: OPCIONES ====== -->
     <section class="card bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
       <h2 class="text-2xl font-bold mb-4">2 · ¿Qué necesitas?</h2>
 
@@ -93,21 +84,13 @@
         </select>
       </div>
     </section>
-
-    <!-- ====== BOTÓN ADAPTAR ====== -->
     <button id="btnAdaptar"
             class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-2xl font-bold py-6 rounded-2xl shadow-lg mb-6 disabled:opacity-50">
       ✨ Adaptar material
     </button>
-
-    <!-- ====== ESTADO / CARGA ====== -->
     <div id="status" role="status" aria-live="polite" class="text-center text-lg font-semibold mb-6"></div>
-
-    <!-- ====== RESULTADOS ====== -->
     <section id="resultados" class="hidden space-y-6">
       <h2 class="text-2xl font-bold">Resultados accesibles</h2>
-
-      <!-- Audiodescripción (protagonista para discapacidad visual) -->
       <article class="card bg-white border-2 border-indigo-200 rounded-2xl p-6 shadow-sm" data-key="guion_audiodescripcion">
         <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <h3 class="text-xl font-bold">🔊 Audiodescripción</h3>
@@ -118,8 +101,6 @@
         </div>
         <p class="contenido muted text-slate-700 whitespace-pre-wrap leading-relaxed"></p>
       </article>
-
-      <!-- Lectura fácil -->
       <article class="card bg-white border-2 border-emerald-200 rounded-2xl p-6 shadow-sm" data-key="lectura_facil">
         <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <h3 class="text-xl font-bold">🟢 Lectura fácil</h3>
@@ -162,23 +143,13 @@
   </main>
 
   <script>
-    // ===========================================================
-    //  ⚙️  CONFIGURACIÓN — CAMBIA SOLO ESTA LÍNEA
-    //  Pega aquí la URL de PRODUCCIÓN de tu Webhook de n8n.
-    //  (En n8n: nodo Webhook → "Production URL". Para probar antes
-    //   de activar el workflow usa la "Test URL" con /webhook-test/)
-    // ===========================================================
-const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook-test/eduinclusiva";
-    // --- Estado ---
+const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook/eduinclusiva";    // --- Estado ---
     let imagenBase64 = null;
     let mimeType = "image/jpeg";
 
-    // --- Utilidades DOM ---
     const $ = (sel) => document.querySelector(sel);
     const statusEl = $("#status");
     const setStatus = (msg) => { statusEl.textContent = msg; };
-
-    // ===== 1. Cargar imagen y convertir a base64 =====
     $("#fileInput").addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -194,8 +165,6 @@ const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook-test/eduinclusiva"
       };
       reader.readAsDataURL(file);
     });
-
-    // ===== 2. Enviar al webhook de n8n =====
     $("#btnAdaptar").addEventListener("click", async () => {
       if (!imagenBase64) { setStatus("⚠️ Primero sube una imagen."); return; }
 
@@ -229,8 +198,6 @@ const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook-test/eduinclusiva"
         $("#btnAdaptar").disabled = false;
       }
     });
-
-    // ===== 3. Pintar resultados en las tarjetas =====
     function pintarResultados(data) {
       document.querySelectorAll("article[data-key]").forEach(card => {
         const key = card.dataset.key;
@@ -250,8 +217,6 @@ const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook-test/eduinclusiva"
       $("#resultados").classList.remove("hidden");
       $("#resultados").scrollIntoView({ behavior: "smooth" });
     }
-
-    // ===== 4. Lectura por voz (Web Speech API — sin costo, en el navegador) =====
     function hablar(texto, idioma) {
       if (!("speechSynthesis" in window)) {
         setStatus("Tu navegador no soporta lectura por voz.");
@@ -263,8 +228,6 @@ const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook-test/eduinclusiva"
       u.rate = 0.95;                                  // un poco más lento = más claro
       window.speechSynthesis.speak(u);
     }
-
-    // Botones "Escuchar" de cada tarjeta
     document.querySelectorAll(".btnEscuchar").forEach(btn => {
       btn.addEventListener("click", () => {
         const card = btn.closest("article");
@@ -275,8 +238,6 @@ const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook-test/eduinclusiva"
         if (texto && texto !== "—") hablar(texto, $("#idioma").value);
       });
     });
-
-    // Botones "Copiar"
     document.querySelectorAll(".btnCopiar").forEach(btn => {
       btn.addEventListener("click", () => {
         const card = btn.closest("article");
@@ -291,8 +252,6 @@ const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook-test/eduinclusiva"
         });
       });
     });
-
-    // ===== 5. Controles de accesibilidad =====
     $("#btnStopAll").addEventListener("click", () => window.speechSynthesis.cancel());
 
     let fontSize = 18;
