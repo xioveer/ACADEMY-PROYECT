@@ -1,272 +1,1185 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" dir="ltr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EduInclusiva AI — Adaptador de Material Educativo Inclusivo</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>EduInclusiva AI — Educación para todos</title>
+  <meta name="description" content="Adapta material educativo para personas con discapacidad visual, auditiva o neurodivergencia usando inteligencia artificial." />
+ 
+  <!-- Google Fonts: Atkinson Hyperlegible (accesibilidad) + Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+ 
   <style>
-    :focus-visible { outline: 4px solid #f59e0b; outline-offset: 3px; }
-    /* Modo alto contraste */
-    body.hc { background:#000 !important; color:#fff !important; }
-    body.hc .card { background:#000 !important; border-color:#fff !important; }
-    body.hc .muted { color:#fff !important; }
+    /* ─── DESIGN TOKENS ─────────────────────────────────────────────── */
+    :root {
+      --color-bg:        #F7F4EF;
+      --color-surface:   #FFFFFF;
+      --color-border:    #DDD8D0;
+      --color-primary:   #2563EB;
+      --color-primary-d: #1D4ED8;
+      --color-accent:    #059669;
+      --color-warn:      #D97706;
+      --color-danger:    #DC2626;
+      --color-text:      #1C1917;
+      --color-muted:     #78716C;
+      --color-overlay:   rgba(0,0,0,.52);
+      --font-body:       'Atkinson Hyperlegible', sans-serif;
+      --font-ui:         'Inter', sans-serif;
+      --radius:          12px;
+      --radius-sm:       8px;
+      --shadow:          0 2px 16px rgba(0,0,0,.08);
+      --shadow-lg:       0 8px 40px rgba(0,0,0,.14);
+      --transition:      .18s ease;
+    }
+ 
+    /* ─── PERFIL VISUAL (alto contraste) ─── */
+    body.profile-visual {
+      --color-bg:      #000000;
+      --color-surface: #111111;
+      --color-border:  #FFD600;
+      --color-primary: #FFD600;
+      --color-text:    #FFFFFF;
+      --color-muted:   #CCCCCC;
+      font-size: 120%;
+      letter-spacing: .03em;
+    }
+    /* ─── PERFIL TDAH ─── */
+    body.profile-tdah {
+      --color-bg:      #FAFCFF;
+      --color-surface: #FFFFFF;
+      --color-primary: #4F46E5;
+      --color-accent:  #0369A1;
+    }
+    body.profile-tdah .distraction { display: none !important; }
+    body.profile-tdah .app-header  { box-shadow: none; border-bottom: 3px solid var(--color-primary); }
+    /* ─── PERFIL AUDITIVO ─── */
+    body.profile-auditiva {
+      --color-primary: #7C3AED;
+      --color-accent:  #0891B2;
+    }
+    body.profile-auditiva .audio-section { display: none !important; }
+ 
+    /* ─── RESET ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-body);
+      background: var(--color-bg);
+      color: var(--color-text);
+      min-height: 100vh;
+      transition: background var(--transition), color var(--transition);
+    }
+    img { max-width: 100%; display: block; }
+    a { color: var(--color-primary); }
+    button { cursor: pointer; font-family: var(--font-ui); border: none; background: none; }
+    input, textarea, select {
+      font-family: var(--font-body);
+      font-size: 1rem;
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: .6rem .9rem;
+      width: 100%;
+      background: var(--color-surface);
+      color: var(--color-text);
+      transition: border-color var(--transition);
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: 3px solid var(--color-primary);
+      outline-offset: 2px;
+      border-color: var(--color-primary);
+    }
+    label { font-weight: 600; display: block; margin-bottom: .3rem; font-family: var(--font-ui); font-size: .9rem; }
+ 
+    /* ─── SKIP LINK (accesibilidad) ─── */
+    .skip-link {
+      position: absolute; top: -9999px; left: .5rem;
+      background: var(--color-primary); color: #fff;
+      padding: .5rem 1rem; border-radius: var(--radius-sm); font-weight: 700;
+      z-index: 9999;
+    }
+    .skip-link:focus { top: .5rem; }
+ 
+    /* ─── HEADER ─────────────────────────────────────────────────────── */
+    .app-header {
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: var(--shadow);
+    }
+    .app-header .logo {
+      font-family: var(--font-ui);
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      display: flex; align-items: center; gap: .45rem;
+      text-decoration: none;
+    }
+    .app-header .logo span { font-weight: 400; color: var(--color-muted); }
+    .header-actions { display: flex; align-items: center; gap: 1rem; }
+ 
+    /* ─── BTN ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .55rem 1.2rem;
+      border-radius: var(--radius-sm);
+      font-size: .9rem; font-weight: 600;
+      font-family: var(--font-ui);
+      transition: background var(--transition), transform .1s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary {
+      background: var(--color-primary);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--color-primary-d); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--color-text);
+      border: 2px solid var(--color-border);
+    }
+    .btn-ghost:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    .btn-danger {
+      background: var(--color-danger); color: #fff;
+    }
+    .btn-danger:hover { opacity: .88; }
+    .btn-lg { padding: .85rem 2rem; font-size: 1.05rem; }
+    .btn-sm { padding: .35rem .8rem; font-size: .82rem; }
+    .btn:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+ 
+    /* ─── MODAL / OVERLAY ─────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: var(--color-overlay);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 500;
+      padding: 1rem;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-box {
+      background: var(--color-surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      width: 100%; max-width: 440px;
+      padding: 2.5rem 2rem;
+      position: relative;
+      animation: fadeUp .22s ease;
+    }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+    .modal-title {
+      font-family: var(--font-ui); font-size: 1.4rem; font-weight: 700;
+      margin-bottom: .3rem; color: var(--color-text);
+    }
+    .modal-subtitle { color: var(--color-muted); font-size: .9rem; margin-bottom: 1.6rem; }
+    .modal-tabs {
+      display: flex; border-bottom: 2px solid var(--color-border);
+      margin-bottom: 1.6rem; gap: .2rem;
+    }
+    .modal-tab {
+      padding: .5rem 1rem; font-size: .9rem; font-weight: 600;
+      border: none; background: none; cursor: pointer;
+      color: var(--color-muted); border-bottom: 3px solid transparent;
+      margin-bottom: -2px; transition: color var(--transition), border-color var(--transition);
+      font-family: var(--font-ui);
+    }
+    .modal-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .form-group { margin-bottom: 1rem; }
+    .modal-footer { margin-top: 1.5rem; font-size: .85rem; color: var(--color-muted); text-align: center; }
+    .demo-note {
+      background: #EFF6FF; border: 1px solid #BFDBFE;
+      border-radius: var(--radius-sm); padding: .7rem 1rem;
+      font-size: .82rem; color: #1E40AF; margin-bottom: 1.2rem;
+    }
+    .error-msg { color: var(--color-danger); font-size: .85rem; margin-top: .4rem; font-weight: 600; }
+ 
+    /* ─── MAIN APP (visible tras login) ─────────────────────────────── */
+    #app-main { display: none; }
+    #app-main.visible { display: block; }
+ 
+    /* ─── LAYOUT CENTRAL ─────────────────────────────────────────────── */
+    .container { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .page-title {
+      font-family: var(--font-ui); font-size: 1.8rem; font-weight: 700;
+      line-height: 1.2; margin-bottom: .4rem;
+    }
+    .page-sub { color: var(--color-muted); font-size: 1rem; margin-bottom: 2rem; }
+ 
+    /* ─── PROFILE SELECTOR ───────────────────────────────────────────── */
+    .profile-bar {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.4rem;
+      margin-bottom: 1.8rem;
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    }
+    .profile-bar label { margin: 0; white-space: nowrap; font-size: .88rem; color: var(--color-muted); }
+    .profile-chips { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .chip {
+      padding: .4rem 1rem; border-radius: 99px;
+      font-size: .85rem; font-weight: 600; font-family: var(--font-ui);
+      border: 2px solid var(--color-border);
+      color: var(--color-muted); background: transparent;
+      cursor: pointer; transition: all var(--transition);
+    }
+    .chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    .chip.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+    .chip:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+ 
+    /* ─── CARD ────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 1.8rem;
+      margin-bottom: 1.4rem;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-family: var(--font-ui); font-size: 1rem; font-weight: 700;
+      margin-bottom: 1rem; display: flex; align-items: center; gap: .4rem;
+    }
+    .section-icon { font-size: 1.2rem; }
+ 
+    /* ─── UPLOAD ZONE ─────────────────────────────────────────────────── */
+    .upload-zone {
+      border: 2.5px dashed var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--color-primary);
+      background: #EFF6FF;
+    }
+    .upload-zone input[type="file"] { display: none; }
+    .upload-zone p { color: var(--color-muted); font-size: .9rem; margin-top: .5rem; }
+    .upload-zone strong { color: var(--color-primary); }
+    .file-preview {
+      margin-top: 1rem; padding: .7rem 1rem;
+      background: #F0FDF4; border: 1px solid #A7F3D0;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; gap: .6rem;
+      font-size: .88rem; color: #065F46;
+      display: none;
+    }
+    .file-preview.visible { display: flex; }
+    .image-thumb {
+      width: 48px; height: 48px; object-fit: cover;
+      border-radius: 4px; border: 1px solid #A7F3D0;
+    }
+ 
+    /* ─── ADAPTATIONS GRID ────────────────────────────────────────────── */
+    .adapt-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: .8rem;
+    }
+    .adapt-option {
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+      display: flex; align-items: flex-start; gap: .7rem;
+    }
+    .adapt-option:hover { border-color: var(--color-primary); }
+    .adapt-option input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--color-primary); flex-shrink: 0; margin-top: 2px; }
+    .adapt-option.checked { border-color: var(--color-primary); background: #EFF6FF; }
+    .adapt-label { font-size: .88rem; font-weight: 600; font-family: var(--font-ui); }
+    .adapt-desc { font-size: .78rem; color: var(--color-muted); margin-top: .15rem; }
+ 
+    /* ─── PRIORITY SECTIONS (perfil adaptativo) ─────────────────────── */
+    .section-priority {
+      border: 2px solid var(--color-accent) !important;
+    }
+    .priority-badge {
+      display: inline-block; background: var(--color-accent); color: #fff;
+      font-size: .72rem; font-weight: 700; padding: .1rem .5rem;
+      border-radius: 99px; font-family: var(--font-ui);
+      margin-left: .5rem; vertical-align: middle;
+    }
+ 
+    /* ─── TEXTO AREA ──────────────────────────────────────────────────── */
+    textarea { resize: vertical; min-height: 120px; }
+ 
+    /* ─── SUBMIT + PROGRESS ───────────────────────────────────────────── */
+    .submit-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-top: .5rem; }
+    .progress-wrap { display: none; margin-top: 1rem; }
+    .progress-wrap.visible { display: block; }
+    .progress-bar-bg { height: 8px; background: var(--color-border); border-radius: 99px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--color-primary); border-radius: 99px; width: 0%; transition: width .3s; }
+    .progress-label { font-size: .82rem; color: var(--color-muted); margin-top: .3rem; font-family: var(--font-ui); }
+ 
+    /* ─── RESULT ──────────────────────────────────────────────────────── */
+    .result-area { display: none; }
+    .result-area.visible { display: block; }
+    .result-tabs { display: flex; gap: .3rem; border-bottom: 2px solid var(--color-border); margin-bottom: 1rem; }
+    .result-tab {
+      padding: .45rem .9rem; font-size: .85rem; font-weight: 600;
+      background: none; border: none; color: var(--color-muted);
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+      cursor: pointer; font-family: var(--font-ui);
+      transition: color var(--transition), border-color var(--transition);
+    }
+    .result-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    .result-content { display: none; }
+    .result-content.active { display: block; }
+    .result-text {
+      background: var(--color-bg); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: 1.2rem;
+      font-size: .95rem; line-height: 1.7; white-space: pre-wrap;
+      max-height: 400px; overflow-y: auto;
+    }
+    .result-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+ 
+    /* TDAH: bloque limpio */
+    body.profile-tdah .result-text {
+      font-size: 1.1rem; line-height: 2;
+      border-left: 4px solid var(--color-primary);
+    }
+ 
+    /* Visual: fuente grande, alto contraste */
+    body.profile-visual .result-text {
+      font-size: 1.3rem; background: #000; color: #FFD600; border-color: #FFD600;
+    }
+ 
+    /* ─── TOAST ────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: var(--color-text); color: #fff;
+      padding: .7rem 1.2rem; border-radius: var(--radius-sm);
+      font-size: .88rem; font-family: var(--font-ui); font-weight: 500;
+      box-shadow: var(--shadow-lg); z-index: 999;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity .22s, transform .22s;
+      pointer-events: none; max-width: 320px;
+    }
+    #toast.show { opacity: 1; transform: none; }
+ 
+    /* ─── AUDIO SECTION ───────────────────────────────────────────────── */
+    .audio-player-wrap {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      margin-top: .8rem;
+    }
+    .tts-btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .55rem 1.1rem; border-radius: var(--radius-sm);
+      background: var(--color-accent); color: #fff;
+      font-weight: 600; font-size: .88rem; font-family: var(--font-ui);
+      transition: opacity var(--transition);
+    }
+    .tts-btn:hover { opacity: .85; }
+    .tts-btn:disabled { opacity: .45; cursor: not-allowed; }
+ 
+    /* ─── USER BADGE ──────────────────────────────────────────────────── */
+    .user-badge {
+      display: flex; align-items: center; gap: .5rem;
+      font-size: .88rem; font-family: var(--font-ui);
+    }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--color-primary); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 700;
+    }
+ 
+    /* ─── RESPONSIVE ──────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .app-header { padding: .8rem 1rem; }
+      .container  { padding: 1.2rem 1rem; }
+      .card       { padding: 1.2rem; }
+      .page-title { font-size: 1.4rem; }
+      .adapt-grid { grid-template-columns: 1fr 1fr; }
+      .modal-box  { padding: 1.8rem 1.2rem; }
+    }
+ 
+    /* ─── FOCO VISIBLE GLOBAL ─────────────────────────────────────────── */
+    *:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+ 
+    /* ─── REDUCED MOTION ──────────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen" style="font-size:18px">
-  <div class="bg-slate-900 text-white">
-    <div class="max-w-4xl mx-auto px-4 py-2 flex flex-wrap gap-2 items-center justify-end text-sm">
-      <span class="mr-auto font-semibold">Accesibilidad:</span>
-      <button id="btnFontMinus" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600" aria-label="Reducir tamaño de letra">A−</button>
-      <button id="btnFontPlus" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600" aria-label="Aumentar tamaño de letra">A+</button>
-      <button id="btnContrast" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600" aria-pressed="false">Alto contraste</button>
-      <button id="btnStopAll" class="px-3 py-2 rounded bg-red-600 hover:bg-red-500" aria-label="Detener toda la voz">■ Detener voz</button>
+ 
+<body>
+  <!-- SKIP LINK -->
+  <a class="skip-link" href="#main-content">Ir al contenido principal</a>
+ 
+  <!-- ══════════════════════════════════════════════════════════════════
+       MODAL DE AUTENTICACIÓN
+  ══════════════════════════════════════════════════════════════════ -->
+  <div id="auth-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="modal-box">
+      <h1 class="modal-title" id="auth-title">
+        🎓 EduInclusiva <span style="font-weight:400;color:var(--color-muted)">AI</span>
+      </h1>
+      <p class="modal-subtitle">Educación accesible para todos</p>
+ 
+      <!-- Tabs Login / Registro -->
+      <div class="modal-tabs" role="tablist">
+        <button class="modal-tab active" id="tab-login" role="tab" aria-selected="true" aria-controls="panel-login" onclick="switchTab('login')">Iniciar sesión</button>
+        <button class="modal-tab" id="tab-register" role="tab" aria-selected="false" aria-controls="panel-register" onclick="switchTab('register')">Registrarse</button>
+      </div>
+ 
+      <!-- DEMO NOTE -->
+      <div class="demo-note" role="note">
+        💡 <strong>Modo demo:</strong> cualquier email y contraseña (mín. 6 caracteres) funciona para ingresar.
+      </div>
+ 
+      <!-- Panel Login -->
+      <div id="panel-login" class="tab-panel active" role="tabpanel" aria-labelledby="tab-login">
+        <div class="form-group">
+          <label for="login-email">Correo electrónico</label>
+          <input type="email" id="login-email" placeholder="tu@correo.com" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="login-pass">Contraseña</label>
+          <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <div id="login-error" class="error-msg" role="alert" aria-live="polite"></div>
+        <button class="btn btn-primary btn-lg" style="width:100%;margin-top:.5rem;justify-content:center" onclick="doLogin()">
+          Entrar →
+        </button>
+        <p class="modal-footer">¿No tenés cuenta? <a href="#" onclick="switchTab('register');return false">Registrate gratis</a></p>
+      </div>
+ 
+      <!-- Panel Registro -->
+      <div id="panel-register" class="tab-panel" role="tabpanel" aria-labelledby="tab-register">
+        <div class="form-group">
+          <label for="reg-name">Nombre completo</label>
+          <input type="text" id="reg-name" placeholder="Tu nombre" autocomplete="name" />
+        </div>
+        <div class="form-group">
+          <label for="reg-email">Correo electrónico</label>
+          <input type="email" id="reg-email" placeholder="tu@correo.com" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="reg-pass">Contraseña</label>
+          <input type="password" id="reg-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+        </div>
+        <div id="reg-error" class="error-msg" role="alert" aria-live="polite"></div>
+        <button class="btn btn-primary btn-lg" style="width:100%;margin-top:.5rem;justify-content:center" onclick="doRegister()">
+          Crear cuenta →
+        </button>
+        <p class="modal-footer">¿Ya tenés cuenta? <a href="#" onclick="switchTab('login');return false">Iniciar sesión</a></p>
+      </div>
     </div>
   </div>
-
-  <main class="max-w-4xl mx-auto px-4 py-8">
-    <header class="text-center mb-8">
-      <h1 class="text-4xl font-extrabold tracking-tight">📚 EduInclusiva AI</h1>
-      <p class="muted text-slate-600 mt-2 text-lg">
-        Sube una foto de tu guía o texto de clase y la convertimos en formatos accesibles:
-        audiodescripción, lectura fácil y resumen.
-      </p>
-    </header>
-    <section class="card bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
-      <h2 class="text-2xl font-bold mb-4">1 · Sube tu material</h2>
-
-      <label for="fileInput"
-             class="block cursor-pointer border-4 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 hover:bg-indigo-50 transition">
-        <span class="text-6xl block mb-3" aria-hidden="true">📷</span>
-        <span class="text-xl font-semibold">Toca aquí para tomar una foto o subir una imagen</span>
-        <span class="muted block text-slate-500 mt-1">Formatos: JPG, PNG · Una guía, página o texto de clase</span>
-      </label>
-      <input id="fileInput" type="file" accept="image/*" capture="environment" class="sr-only" aria-describedby="fileHelp" />
-      <p id="fileHelp" class="sr-only">Selecciona una imagen que contenga el texto que quieres adaptar.</p>
-
-      <div id="preview" class="mt-4 hidden">
-        <img id="previewImg" alt="Vista previa de la imagen seleccionada" class="max-h-64 mx-auto rounded-lg border" />
-        <p id="fileName" class="muted text-center text-slate-500 mt-2 text-sm"></p>
+ 
+  <!-- ══════════════════════════════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════════════════════════════ -->
+  <header class="app-header" role="banner">
+    <a href="#main-content" class="logo" aria-label="EduInclusiva AI — ir al inicio">
+      🎓 EduInclusiva <span>AI</span>
+    </a>
+    <div class="header-actions distraction">
+      <div class="user-badge" id="user-badge" aria-live="polite"></div>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()" id="logout-btn" style="display:none" aria-label="Cerrar sesión">
+        Salir
+      </button>
+    </div>
+  </header>
+ 
+  <!-- ══════════════════════════════════════════════════════════════════
+       APP PRINCIPAL
+  ══════════════════════════════════════════════════════════════════ -->
+  <main id="app-main" role="main">
+    <div class="container" id="main-content" tabindex="-1">
+ 
+      <h2 class="page-title">Adaptar material educativo</h2>
+      <p class="page-sub">Subí un documento o pegá texto, elegí las adaptaciones y la IA transforma el contenido.</p>
+ 
+      <!-- ── SELECTOR DE PERFIL ─────────────────────────────────────── -->
+      <div class="profile-bar" role="navigation" aria-label="Selector de perfil de accesibilidad">
+        <label id="profile-label">Perfil de accesibilidad:</label>
+        <div class="profile-chips" role="group" aria-labelledby="profile-label">
+          <button class="chip active" data-profile="default" onclick="setProfile('default', this)" aria-pressed="true">Sin perfil</button>
+          <button class="chip" data-profile="visual" onclick="setProfile('visual', this)" aria-pressed="false">🔍 Visual</button>
+          <button class="chip" data-profile="tdah" onclick="setProfile('tdah', this)" aria-pressed="false">⚡ TDAH / Cognitiva</button>
+          <button class="chip" data-profile="auditiva" onclick="setProfile('auditiva', this)" aria-pressed="false">👂 Auditiva</button>
+        </div>
       </div>
-    </section>
-    <section class="card bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
-      <h2 class="text-2xl font-bold mb-4">2 · ¿Qué necesitas?</h2>
-
-      <fieldset>
-        <legend class="font-semibold mb-2">Formatos a generar</legend>
-        <div class="grid sm:grid-cols-2 gap-3">
-          <label class="flex items-center gap-3 border rounded-lg p-3 cursor-pointer">
-            <input type="checkbox" class="modo w-6 h-6" value="audiodescripcion" checked />
-            <span>🔊 Audiodescripción (voz)</span>
-          </label>
-          <label class="flex items-center gap-3 border rounded-lg p-3 cursor-pointer">
-            <input type="checkbox" class="modo w-6 h-6" value="lectura_facil" checked />
-            <span>🟢 Lectura fácil</span>
-          </label>
-          <label class="flex items-center gap-3 border rounded-lg p-3 cursor-pointer">
-            <input type="checkbox" class="modo w-6 h-6" value="transcripcion" checked />
-            <span>📝 Transcripción limpia</span>
-          </label>
-          <label class="flex items-center gap-3 border rounded-lg p-3 cursor-pointer">
-            <input type="checkbox" class="modo w-6 h-6" value="resumen" checked />
-            <span>📌 Resumen estructurado</span>
-          </label>
+ 
+      <!-- ── PASO 1: CONTENIDO ─────────────────────────────────────── -->
+      <section class="card" aria-labelledby="step1-title">
+        <h3 class="card-title" id="step1-title"><span class="section-icon">📄</span> Paso 1 — Contenido a adaptar</h3>
+ 
+        <!-- Upload área -->
+        <div class="upload-zone" id="upload-zone" role="button" tabindex="0"
+          aria-label="Subir archivo: PDF, texto o imagen. Click o arrastrar"
+          onclick="document.getElementById('file-input').click()"
+          onkeydown="if(e.key==='Enter'||e.key===' ')document.getElementById('file-input').click()"
+          ondragover="handleDragOver(event)"
+          ondragleave="this.classList.remove('dragover')"
+          ondrop="handleDrop(event)">
+          <input type="file" id="file-input" accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp" onchange="handleFileSelect(event)" aria-hidden="true" />
+          <div style="font-size:2.5rem">📂</div>
+          <p><strong>Click para subir</strong> o arrastrá el archivo aquí</p>
+          <p>PDF · TXT · DOCX · JPG · PNG · WEBP</p>
         </div>
-      </fieldset>
-
-      <div class="mt-4">
-        <label for="idioma" class="font-semibold block mb-1">Idioma de salida</label>
-        <select id="idioma" class="border-2 rounded-lg p-3 text-lg w-full sm:w-64">
-          <option value="es" selected>Español</option>
-          <option value="en">Inglés</option>
-          <option value="pt">Portugués</option>
-        </select>
-      </div>
-    </section>
-    <button id="btnAdaptar"
-            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-2xl font-bold py-6 rounded-2xl shadow-lg mb-6 disabled:opacity-50">
-      ✨ Adaptar material
-    </button>
-    <div id="status" role="status" aria-live="polite" class="text-center text-lg font-semibold mb-6"></div>
-    <section id="resultados" class="hidden space-y-6">
-      <h2 class="text-2xl font-bold">Resultados accesibles</h2>
-      <article class="card bg-white border-2 border-indigo-200 rounded-2xl p-6 shadow-sm" data-key="guion_audiodescripcion">
-        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <h3 class="text-xl font-bold">🔊 Audiodescripción</h3>
-          <div class="flex gap-2">
-            <button class="btnEscuchar bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl text-lg font-semibold">▶ Escuchar</button>
-            <button class="btnCopiar bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-xl" aria-label="Copiar audiodescripción">Copiar</button>
+ 
+        <!-- Preview del archivo -->
+        <div class="file-preview" id="file-preview" role="status" aria-live="polite">
+          <img id="preview-thumb" class="image-thumb" src="" alt="" style="display:none" />
+          <span>✅</span>
+          <span id="file-name">archivo.pdf</span>
+          <button class="btn btn-ghost btn-sm" onclick="clearFile()" aria-label="Quitar archivo seleccionado" style="margin-left:auto">✕ Quitar</button>
+        </div>
+ 
+        <!-- O texto directo -->
+        <div style="margin-top:1.2rem">
+          <label for="text-input" id="text-label">O pegá el texto directamente</label>
+          <textarea id="text-input" rows="5" placeholder="Pegá aquí el texto del apunte, consigna o material que querés adaptar..." aria-labelledby="text-label"></textarea>
+        </div>
+      </section>
+ 
+      <!-- ── PASO 2: ADAPTACIONES ─────────────────────────────────── -->
+      <section class="card" id="adaptations-card" aria-labelledby="step2-title">
+        <h3 class="card-title" id="step2-title"><span class="section-icon">♿</span> Paso 2 — Tipo de adaptación</h3>
+        <div class="adapt-grid" role="group" aria-labelledby="step2-title">
+ 
+          <label class="adapt-option" id="opt-dislexia">
+            <input type="checkbox" value="dislexia" onchange="toggleAdapt(this, 'opt-dislexia')" />
+            <div>
+              <div class="adapt-label">📖 Dislexia</div>
+              <div class="adapt-desc">Formato Open Dyslexic, espaciado ampliado, párrafos cortos</div>
+            </div>
+          </label>
+ 
+          <label class="adapt-option" id="opt-baja-vision" class="audio-section">
+            <input type="checkbox" value="baja_vision" onchange="toggleAdapt(this, 'opt-baja-vision')" />
+            <div>
+              <div class="adapt-label">🔍 Baja visión</div>
+              <div class="adapt-desc">Fuente grande, alto contraste, elementos destacados</div>
+            </div>
+          </label>
+ 
+          <label class="adapt-option" id="opt-daltonismo">
+            <input type="checkbox" value="daltonismo" onchange="toggleAdapt(this, 'opt-daltonismo')" />
+            <div>
+              <div class="adapt-label">🎨 Daltonismo</div>
+              <div class="adapt-desc">Paleta segura, sin dependencia del color para información</div>
+            </div>
+          </label>
+ 
+          <label class="adapt-option" id="opt-tdah">
+            <input type="checkbox" value="tdah" onchange="toggleAdapt(this, 'opt-tdah')" />
+            <div>
+              <div class="adapt-label">⚡ TDAH</div>
+              <div class="adapt-desc">Contenido en pasos, bullet points, sin distractores</div>
+            </div>
+          </label>
+ 
+          <label class="adapt-option" id="opt-ceguera" class="audio-section">
+            <input type="checkbox" value="ceguera" onchange="toggleAdapt(this, 'opt-ceguera')" />
+            <div>
+              <div class="adapt-label">🦯 Ceguera</div>
+              <div class="adapt-desc">Descripción alt de imágenes, estructura ARIA, exporta a audio</div>
+            </div>
+          </label>
+ 
+          <label class="adapt-option" id="opt-cognitiva">
+            <input type="checkbox" value="cognitiva" onchange="toggleAdapt(this, 'opt-cognitiva')" />
+            <div>
+              <div class="adapt-label">🧠 Cognitiva / Lectura fácil</div>
+              <div class="adapt-desc">Lenguaje simple, oraciones cortas, resumen al inicio</div>
+            </div>
+          </label>
+ 
+          <label class="adapt-option" id="opt-auditiva">
+            <input type="checkbox" value="auditiva" onchange="toggleAdapt(this, 'opt-auditiva')" />
+            <div>
+              <div class="adapt-label">👂 Discapacidad auditiva</div>
+              <div class="adapt-desc">Resumen estructurado, esquemas visuales, texto completo</div>
+            </div>
+          </label>
+ 
+        </div>
+      </section>
+ 
+      <!-- ── PASO 3: PROCESAR ──────────────────────────────────────── -->
+      <section class="card" aria-labelledby="step3-title">
+        <h3 class="card-title" id="step3-title"><span class="section-icon">🤖</span> Paso 3 — Procesar con IA</h3>
+        <p style="font-size:.9rem;color:var(--color-muted);margin-bottom:1rem">
+          La IA adaptará el contenido según las necesidades seleccionadas. El proceso tarda entre 5 y 15 segundos.
+        </p>
+        <div class="submit-row">
+          <button class="btn btn-primary btn-lg" id="process-btn" onclick="processContent()">
+            ✨ Adaptar contenido
+          </button>
+          <button class="btn btn-ghost" onclick="clearAll()" aria-label="Limpiar todo el formulario">
+            🗑 Limpiar todo
+          </button>
+        </div>
+ 
+        <!-- Barra de progreso -->
+        <div class="progress-wrap" id="progress-wrap" role="status" aria-live="polite" aria-label="Procesando…">
+          <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+          <div class="progress-label" id="progress-label">Enviando al servidor…</div>
+        </div>
+      </section>
+ 
+      <!-- ── RESULTADO ─────────────────────────────────────────────── -->
+      <section class="card result-area" id="result-section" aria-labelledby="result-title">
+        <h3 class="card-title" id="result-title"><span class="section-icon">📋</span> Resultado adaptado</h3>
+ 
+        <!-- Tabs de resultado -->
+        <div class="result-tabs" role="tablist">
+          <button class="result-tab active" id="rtab-texto" role="tab" aria-selected="true" aria-controls="rcontent-texto" onclick="switchResultTab('texto')">
+            Texto adaptado
+          </button>
+          <button class="result-tab audio-section" id="rtab-audio" role="tab" aria-selected="false" aria-controls="rcontent-audio" onclick="switchResultTab('audio')">
+            🔊 Audio / Voz
+          </button>
+          <button class="result-tab" id="rtab-raw" role="tab" aria-selected="false" aria-controls="rcontent-raw" onclick="switchResultTab('raw')">
+            Respuesta completa
+          </button>
+        </div>
+ 
+        <!-- Texto adaptado -->
+        <div id="rcontent-texto" class="result-content active" role="tabpanel" aria-labelledby="rtab-texto">
+          <div class="result-text" id="result-text-main" aria-live="polite"></div>
+          <div class="result-actions">
+            <button class="btn btn-primary" onclick="copyResult()">📋 Copiar texto</button>
+            <button class="btn btn-ghost" onclick="downloadTxt()">⬇ Descargar .txt</button>
           </div>
         </div>
-        <p class="contenido muted text-slate-700 whitespace-pre-wrap leading-relaxed"></p>
-      </article>
-      <article class="card bg-white border-2 border-emerald-200 rounded-2xl p-6 shadow-sm" data-key="lectura_facil">
-        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <h3 class="text-xl font-bold">🟢 Lectura fácil</h3>
-          <div class="flex gap-2">
-            <button class="btnEscuchar bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl text-lg font-semibold">▶ Escuchar</button>
-            <button class="btnCopiar bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-xl" aria-label="Copiar lectura fácil">Copiar</button>
+ 
+        <!-- Audio / Voz -->
+        <div id="rcontent-audio" class="result-content" role="tabpanel" aria-labelledby="rtab-audio">
+          <p style="font-size:.9rem;color:var(--color-muted);margin-bottom:.8rem">
+            Reproducción usando síntesis de voz del navegador (Web Speech API).
+          </p>
+          <div class="audio-player-wrap">
+            <button class="tts-btn" onclick="speakResult()" id="tts-play-btn" aria-label="Reproducir texto adaptado con voz">
+              ▶ Reproducir
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="stopSpeech()" aria-label="Detener reproducción">⏹ Detener</button>
+            <label for="tts-rate" style="margin:0;font-size:.82rem">Velocidad:</label>
+            <input type="range" id="tts-rate" min="0.5" max="1.8" step="0.1" value="0.95"
+              style="width:100px;accent-color:var(--color-primary)" aria-label="Velocidad de reproducción de voz" />
           </div>
         </div>
-        <p class="contenido muted text-slate-700 whitespace-pre-wrap leading-relaxed"></p>
-      </article>
-
-      <!-- Transcripción limpia -->
-      <article class="card bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm" data-key="transcripcion_limpia">
-        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <h3 class="text-xl font-bold">📝 Transcripción limpia</h3>
-          <div class="flex gap-2">
-            <button class="btnEscuchar bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl text-lg font-semibold">▶ Escuchar</button>
-            <button class="btnCopiar bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-xl" aria-label="Copiar transcripción">Copiar</button>
-          </div>
+ 
+        <!-- Raw -->
+        <div id="rcontent-raw" class="result-content" role="tabpanel" aria-labelledby="rtab-raw">
+          <pre class="result-text" id="result-raw" style="font-size:.8rem;font-family:monospace"></pre>
         </div>
-        <p class="contenido muted text-slate-700 whitespace-pre-wrap leading-relaxed"></p>
-      </article>
-
-      <!-- Resumen estructurado -->
-      <article class="card bg-white border-2 border-amber-200 rounded-2xl p-6 shadow-sm" data-key="resumen_estructurado">
-        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <h3 class="text-xl font-bold">📌 Resumen estructurado</h3>
-          <div class="flex gap-2">
-            <button class="btnEscuchar bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl text-lg font-semibold">▶ Escuchar</button>
-            <button class="btnCopiar bg-slate-200 hover:bg-slate-300 px-4 py-3 rounded-xl" aria-label="Copiar resumen">Copiar</button>
-          </div>
-        </div>
-        <ul class="contenidoLista muted list-disc pl-6 text-slate-700 space-y-1 leading-relaxed"></ul>
-      </article>
-    </section>
-
-    <footer class="muted text-center text-slate-400 text-sm mt-12">
-      EduInclusiva AI · Democratizar el aprendizaje · CoderCup 2026
-    </footer>
+ 
+      </section>
+ 
+    </div><!-- /container -->
   </main>
-
+ 
+  <!-- TOAST -->
+  <div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+ 
+  <!-- ══════════════════════════════════════════════════════════════════
+       JAVASCRIPT
+  ══════════════════════════════════════════════════════════════════ -->
   <script>
-const WEBHOOK_URL = "https://patrick123.app.n8n.cloud/webhook/eduinclusiva";    // --- Estado ---
-    let imagenBase64 = null;
-    let mimeType = "image/jpeg";
-
-    const $ = (sel) => document.querySelector(sel);
-    const statusEl = $("#status");
-    const setStatus = (msg) => { statusEl.textContent = msg; };
-    $("#fileInput").addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      mimeType = file.type || "image/jpeg";
+  // ─── CONSTANTES ───────────────────────────────────────────────────
+  const WEBHOOK_URL = 'https://patrick123.app.n8n.cloud/webhook/eduinclusiva'; // ← reemplazar
+  const LS_USER_KEY = 'edu_user_v2';
+ 
+  // ─── ESTADO ───────────────────────────────────────────────────────
+  let state = {
+    file: null,
+    fileType: null,       // 'image' | 'text-file' | null
+    fileBase64: null,     // solo para imágenes
+    fileMimeType: null,
+    adaptations: new Set(),
+    currentProfile: 'default',
+    resultText: '',
+    isSpeaking: false,
+  };
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // AUTH
+  // ══════════════════════════════════════════════════════════════════
+  function getUsers() {
+    try { return JSON.parse(localStorage.getItem('edu_users') || '{}'); }
+    catch { return {}; }
+  }
+  function saveUsers(u) { localStorage.setItem('edu_users', JSON.stringify(u)); }
+  function getCurrentUser() {
+    try { return JSON.parse(localStorage.getItem(LS_USER_KEY)); }
+    catch { return null; }
+  }
+  function setCurrentUser(u) { localStorage.setItem(LS_USER_KEY, JSON.stringify(u)); }
+ 
+  function switchTab(tab) {
+    ['login','register'].forEach(t => {
+      const btn = document.getElementById('tab-' + t);
+      const panel = document.getElementById('panel-' + t);
+      const isActive = t === tab;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive);
+      panel.classList.toggle('active', isActive);
+    });
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('reg-error').textContent = '';
+  }
+ 
+  function doLogin() {
+    const email = document.getElementById('login-email').value.trim().toLowerCase();
+    const pass  = document.getElementById('login-pass').value;
+    const errEl = document.getElementById('login-error');
+    errEl.textContent = '';
+ 
+    if (!email || !pass) { errEl.textContent = 'Completá todos los campos.'; return; }
+    if (pass.length < 6)  { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+ 
+    const users = getUsers();
+    if (users[email] && users[email].pass !== btoa(pass)) {
+      errEl.textContent = 'Contraseña incorrecta.'; return;
+    }
+    // Si no existe → lo creamos (modo demo)
+    if (!users[email]) {
+      users[email] = { email, pass: btoa(pass), name: email.split('@')[0] };
+      saveUsers(users);
+    }
+    const user = users[email];
+    setCurrentUser({ email: user.email, name: user.name });
+    showApp(user);
+    showToast('¡Bienvenid@, ' + user.name + '! 🎉');
+  }
+ 
+  function doRegister() {
+    const name  = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim().toLowerCase();
+    const pass  = document.getElementById('reg-pass').value;
+    const errEl = document.getElementById('reg-error');
+    errEl.textContent = '';
+ 
+    if (!name || !email || !pass) { errEl.textContent = 'Completá todos los campos.'; return; }
+    if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Email inválido.'; return; }
+ 
+    const users = getUsers();
+    if (users[email]) { errEl.textContent = 'Ese email ya está registrado.'; return; }
+ 
+    users[email] = { email, pass: btoa(pass), name };
+    saveUsers(users);
+    setCurrentUser({ email, name });
+    showApp({ name, email });
+    showToast('Cuenta creada. ¡Bienvenid@, ' + name + '! 🎉');
+  }
+ 
+  function doLogout() {
+    localStorage.removeItem(LS_USER_KEY);
+    document.getElementById('app-main').classList.remove('visible');
+    document.getElementById('auth-modal').classList.remove('hidden');
+    document.getElementById('logout-btn').style.display = 'none';
+    document.getElementById('user-badge').innerHTML = '';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-pass').value = '';
+    clearAll();
+  }
+ 
+  function showApp(user) {
+    document.getElementById('auth-modal').classList.add('hidden');
+    document.getElementById('app-main').classList.add('visible');
+    document.getElementById('logout-btn').style.display = 'inline-flex';
+    const initials = user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    document.getElementById('user-badge').innerHTML = `
+      <div class="user-avatar" aria-hidden="true">${initials}</div>
+      <span style="font-size:.85rem">${user.name}</span>`;
+  }
+ 
+  // Auto-login si hay sesión guardada
+  window.addEventListener('DOMContentLoaded', () => {
+    const user = getCurrentUser();
+    if (user) showApp(user);
+  });
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // PERFIL ADAPTATIVO
+  // ══════════════════════════════════════════════════════════════════
+  function setProfile(profile, btn) {
+    document.querySelectorAll('.chip').forEach(c => {
+      c.classList.remove('active');
+      c.setAttribute('aria-pressed', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
+ 
+    document.body.className = document.body.className
+      .replace(/\bprofile-\S+/g, '').trim();
+ 
+    state.currentProfile = profile;
+ 
+    if (profile !== 'default') {
+      document.body.classList.add('profile-' + profile);
+    }
+ 
+    // Priorizar secciones según perfil
+    document.querySelectorAll('.section-priority').forEach(el => el.classList.remove('section-priority'));
+    document.querySelectorAll('.priority-badge').forEach(el => el.remove());
+ 
+    const priorities = {
+      visual:    ['opt-baja-vision', 'opt-daltonismo'],
+      tdah:      ['opt-tdah', 'opt-cognitiva'],
+      auditiva:  ['opt-auditiva'],
+    };
+ 
+    if (priorities[profile]) {
+      priorities[profile].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.add('section-priority');
+          const labelEl = el.querySelector('.adapt-label');
+          if (labelEl && !labelEl.querySelector('.priority-badge')) {
+            const badge = document.createElement('span');
+            badge.className = 'priority-badge';
+            badge.textContent = 'Prioridad';
+            labelEl.appendChild(badge);
+          }
+          // Auto-seleccionar
+          const chk = el.querySelector('input[type="checkbox"]');
+          if (chk && !chk.checked) { chk.checked = true; state.adaptations.add(chk.value); }
+          el.classList.add('checked');
+        }
+      });
+    }
+ 
+    // Mostrar/ocultar sección de audio según perfil
+    const audioResultTab = document.getElementById('rtab-audio');
+    if (audioResultTab) {
+      audioResultTab.style.display = (profile === 'auditiva') ? 'none' : '';
+    }
+ 
+    showToast('Perfil ' + btn.textContent.trim() + ' activado');
+  }
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // MANEJO DE ARCHIVOS — DETECCIÓN UNIVERSAL + BASE64 IMÁGENES
+  // ══════════════════════════════════════════════════════════════════
+  const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+ 
+  function handleFileSelect(e) { handleFile(e.target.files[0]); }
+  function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.add('dragover');
+  }
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.remove('dragover');
+    handleFile(e.dataTransfer.files[0]);
+  }
+ 
+  function handleFile(file) {
+    if (!file) return;
+ 
+    state.file = file;
+    state.fileBase64 = null;
+    state.fileMimeType = file.type;
+ 
+    const isImage = IMAGE_TYPES.includes(file.type);
+    state.fileType = isImage ? 'image' : 'text-file';
+ 
+    const preview = document.getElementById('file-preview');
+    const nameEl  = document.getElementById('file-name');
+    const thumb   = document.getElementById('preview-thumb');
+ 
+    nameEl.textContent = file.name + ' (' + formatBytes(file.size) + ')';
+    preview.classList.add('visible');
+ 
+    if (isImage) {
+      // Convertir a Base64 limpiamente
       const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result;                 // "data:image/jpeg;base64,XXXX"
-        imagenBase64 = dataUrl.split(",")[1];          // nos quedamos solo con XXXX
-        $("#previewImg").src = dataUrl;
-        $("#fileName").textContent = file.name;
-        $("#preview").classList.remove("hidden");
-        setStatus("Imagen lista. Pulsa «Adaptar material».");
+      reader.onload = function(ev) {
+        const dataUrl = ev.target.result;               // data:[mime];base64,[data]
+        state.fileBase64 = dataUrl.split(',')[1];       // solo la parte base64
+        thumb.src = dataUrl;
+        thumb.alt = 'Vista previa: ' + file.name;
+        thumb.style.display = 'block';
       };
+      reader.onerror = () => showToast('Error al leer la imagen', 'error');
       reader.readAsDataURL(file);
-    });
-    $("#btnAdaptar").addEventListener("click", async () => {
-      if (!imagenBase64) { setStatus("⚠️ Primero sube una imagen."); return; }
-
-      const modos = Array.from(document.querySelectorAll(".modo:checked"))
-                         .map(c => c.value).join(",") || "todos";
-      const idioma = $("#idioma").value;
-
-      $("#btnAdaptar").disabled = true;
-      $("#resultados").classList.add("hidden");
-      setStatus("⏳ Adaptando tu material… esto tarda unos segundos.");
-
-      try {
-        const resp = await fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imagen_base64: imagenBase64, mime_type: mimeType, idioma, modos })
-        });
-        if (!resp.ok) throw new Error("Servidor respondió " + resp.status);
-        const data = await resp.json();
-
-        if (data.ok === false) {
-          setStatus("⚠️ " + (data.error || "No se pudo leer texto en la imagen."));
-          $("#btnAdaptar").disabled = false;
-          return;
-        }
-        pintarResultados(data);
-        setStatus("✅ ¡Listo! Tu material adaptado está abajo.");
-      } catch (err) {
-        setStatus("❌ Error de conexión: " + err.message + ". Revisa la URL del webhook.");
-      } finally {
-        $("#btnAdaptar").disabled = false;
+    } else {
+      thumb.style.display = 'none';
+      thumb.src = '';
+      // Leer texto de archivos de texto
+      if (file.type === 'text/plain') {
+        const r2 = new FileReader();
+        r2.onload = ev => { document.getElementById('text-input').value = ev.target.result; };
+        r2.readAsText(file);
       }
-    });
-    function pintarResultados(data) {
-      document.querySelectorAll("article[data-key]").forEach(card => {
-        const key = card.dataset.key;
-        const valor = data[key];
-        if (key === "resumen_estructurado") {
-          const ul = card.querySelector(".contenidoLista");
-          ul.innerHTML = "";
-          (Array.isArray(valor) ? valor : [valor || "—"]).forEach(item => {
-            const li = document.createElement("li");
-            li.textContent = item;
-            ul.appendChild(li);
-          });
-        } else {
-          card.querySelector(".contenido").textContent = valor || "—";
-        }
-      });
-      $("#resultados").classList.remove("hidden");
-      $("#resultados").scrollIntoView({ behavior: "smooth" });
     }
-    function hablar(texto, idioma) {
-      if (!("speechSynthesis" in window)) {
-        setStatus("Tu navegador no soporta lectura por voz.");
-        return;
+  }
+ 
+  function clearFile() {
+    state.file = null; state.fileBase64 = null; state.fileMimeType = null; state.fileType = null;
+    document.getElementById('file-input').value = '';
+    document.getElementById('file-preview').classList.remove('visible');
+    document.getElementById('preview-thumb').style.display = 'none';
+  }
+ 
+  function formatBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+  }
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // ADAPTACIONES — TOGGLE
+  // ══════════════════════════════════════════════════════════════════
+  function toggleAdapt(chk, optId) {
+    if (chk.checked) state.adaptations.add(chk.value);
+    else state.adaptations.delete(chk.value);
+    document.getElementById(optId).classList.toggle('checked', chk.checked);
+  }
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // PROCESAR CONTENIDO → WEBHOOK
+  // ══════════════════════════════════════════════════════════════════
+  async function processContent() {
+    const textInput = document.getElementById('text-input').value.trim();
+ 
+    // Validaciones
+    if (!state.file && !textInput) {
+      showToast('Subí un archivo o pegá texto antes de procesar', 'warn'); return;
+    }
+    if (state.adaptations.size === 0) {
+      showToast('Seleccioná al menos un tipo de adaptación', 'warn'); return;
+    }
+ 
+    // Esperar a que la imagen termine de convertirse si aún está en curso
+    if (state.fileType === 'image' && !state.fileBase64) {
+      showToast('La imagen aún se está procesando, esperá un momento…', 'warn'); return;
+    }
+ 
+    setProcessing(true);
+ 
+    // ── Construir payload JSON limpio ──────────────────────────────
+    const user = getCurrentUser() || {};
+    const payload = {
+      timestamp:   new Date().toISOString(),
+      user_email:  user.email || 'anonimo',
+      adaptations: Array.from(state.adaptations),
+      profile:     state.currentProfile,
+    };
+ 
+    if (state.fileType === 'image') {
+      // Imagen: base64 en campo separado, nunca dentro de texto
+      payload.content_type   = 'image';
+      payload.image_base64   = state.fileBase64;          // string base64 puro
+      payload.image_mime     = state.fileMimeType;        // e.g. "image/png"
+      payload.image_filename = state.file ? state.file.name : 'imagen';
+    } else if (state.fileType === 'text-file') {
+      payload.content_type = 'file';
+      payload.text_content = textInput || ''; // texto extraído del archivo si era .txt
+      payload.filename     = state.file ? state.file.name : '';
+    } else {
+      payload.content_type = 'text';
+      payload.text_content = textInput;
+    }
+ 
+    // ── Progreso animado ──────────────────────────────────────────
+    animateProgress([
+      { pct: 20, label: 'Enviando contenido al servidor…' },
+      { pct: 50, label: 'IA procesando adaptaciones…' },
+      { pct: 80, label: 'Generando resultado…' },
+    ]);
+ 
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),      // JSON siempre válido
+      });
+ 
+      setProgress(100, '¡Listo!');
+ 
+      let data;
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const raw = await res.text();
+        // Intentar parsear como JSON de todas formas
+        try { data = JSON.parse(raw); } catch { data = { text: raw }; }
       }
-      window.speechSynthesis.cancel();               // corta lo anterior
-      const u = new SpeechSynthesisUtterance(texto);
-      u.lang = idioma === "en" ? "en-US" : idioma === "pt" ? "pt-BR" : "es-ES";
-      u.rate = 0.95;                                  // un poco más lento = más claro
-      window.speechSynthesis.speak(u);
+ 
+      if (!res.ok) {
+        throw new Error('El servidor respondió con error ' + res.status);
+      }
+ 
+      showResult(data);
+ 
+    } catch (err) {
+      console.error('[EduInclusiva] Error:', err);
+      showToast('Error al procesar: ' + err.message, 'error');
+    } finally {
+      setTimeout(() => setProcessing(false), 600);
     }
-    document.querySelectorAll(".btnEscuchar").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const card = btn.closest("article");
-        const lista = card.querySelector(".contenidoLista");
-        const texto = lista
-          ? Array.from(lista.querySelectorAll("li")).map(li => li.textContent).join(". ")
-          : card.querySelector(".contenido").textContent;
-        if (texto && texto !== "—") hablar(texto, $("#idioma").value);
-      });
+  }
+ 
+  function showResult(data) {
+    // Extraer texto de la respuesta (varios formatos posibles)
+    const text =
+      data.adapted_text ||
+      data.result       ||
+      data.output       ||
+      data.text         ||
+      (Array.isArray(data) && data[0] && (data[0].adapted_text || data[0].output || data[0].text)) ||
+      JSON.stringify(data, null, 2);
+ 
+    state.resultText = typeof text === 'string' ? text : JSON.stringify(text, null, 2);
+ 
+    document.getElementById('result-text-main').textContent = state.resultText;
+    document.getElementById('result-raw').textContent = JSON.stringify(data, null, 2);
+ 
+    const section = document.getElementById('result-section');
+    section.classList.add('visible');
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+ 
+    showToast('Contenido adaptado con éxito ✅');
+  }
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // TEXTO A VOZ (Web Speech API)
+  // ══════════════════════════════════════════════════════════════════
+  function speakResult() {
+    if (!('speechSynthesis' in window)) {
+      showToast('Tu navegador no soporta síntesis de voz', 'warn'); return;
+    }
+    stopSpeech();
+    const utt = new SpeechSynthesisUtterance(state.resultText);
+    utt.lang  = 'es-MX';
+    utt.rate  = parseFloat(document.getElementById('tts-rate').value);
+    utt.onend = () => { state.isSpeaking = false; document.getElementById('tts-play-btn').textContent = '▶ Reproducir'; };
+    state.isSpeaking = true;
+    document.getElementById('tts-play-btn').textContent = '⏸ Reproduciendo…';
+    window.speechSynthesis.speak(utt);
+  }
+ 
+  function stopSpeech() {
+    window.speechSynthesis && window.speechSynthesis.cancel();
+    state.isSpeaking = false;
+    const btn = document.getElementById('tts-play-btn');
+    if (btn) btn.textContent = '▶ Reproducir';
+  }
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // PROGRESO
+  // ══════════════════════════════════════════════════════════════════
+  let progressTimer = null;
+ 
+  function animateProgress(steps) {
+    let i = 0;
+    const next = () => {
+      if (i >= steps.length) return;
+      const s = steps[i++];
+      setProgress(s.pct, s.label);
+      progressTimer = setTimeout(next, 2200);
+    };
+    next();
+  }
+ 
+  function setProgress(pct, label) {
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-label').textContent = label;
+  }
+ 
+  function setProcessing(on) {
+    const btn = document.getElementById('process-btn');
+    const wrap = document.getElementById('progress-wrap');
+    btn.disabled = on;
+    btn.textContent = on ? '⏳ Procesando…' : '✨ Adaptar contenido';
+    wrap.classList.toggle('visible', on);
+    if (!on) {
+      clearTimeout(progressTimer);
+      setTimeout(() => wrap.classList.remove('visible'), 800);
+    }
+  }
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // RESULT TABS
+  // ══════════════════════════════════════════════════════════════════
+  function switchResultTab(tab) {
+    document.querySelectorAll('.result-tab').forEach(t => {
+      t.classList.remove('active'); t.setAttribute('aria-selected', 'false');
     });
-    document.querySelectorAll(".btnCopiar").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const card = btn.closest("article");
-        const lista = card.querySelector(".contenidoLista");
-        const texto = lista
-          ? Array.from(lista.querySelectorAll("li")).map(li => "• " + li.textContent).join("\n")
-          : card.querySelector(".contenido").textContent;
-        navigator.clipboard.writeText(texto).then(() => {
-          const original = btn.textContent;
-          btn.textContent = "✓ Copiado";
-          setTimeout(() => btn.textContent = original, 1500);
-        });
-      });
+    document.querySelectorAll('.result-content').forEach(c => c.classList.remove('active'));
+    const btn = document.getElementById('rtab-' + tab);
+    const cnt = document.getElementById('rcontent-' + tab);
+    if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected', 'true'); }
+    if (cnt) cnt.classList.add('active');
+  }
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // UTILIDADES
+  // ══════════════════════════════════════════════════════════════════
+  function copyResult() {
+    navigator.clipboard.writeText(state.resultText)
+      .then(() => showToast('Texto copiado al portapapeles ✅'))
+      .catch(() => showToast('No se pudo copiar', 'error'));
+  }
+ 
+  function downloadTxt() {
+    if (!state.resultText) return;
+    const blob = new Blob([state.resultText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'eduinclusiva_adaptado.txt'; a.click();
+    URL.revokeObjectURL(url);
+  }
+ 
+  function clearAll() {
+    document.getElementById('text-input').value = '';
+    clearFile();
+    document.querySelectorAll('.adapt-option input').forEach(c => {
+      c.checked = false;
+      c.closest('.adapt-option').classList.remove('checked');
     });
-    $("#btnStopAll").addEventListener("click", () => window.speechSynthesis.cancel());
-
-    let fontSize = 18;
-    $("#btnFontPlus").addEventListener("click", () => {
-      fontSize = Math.min(fontSize + 2, 30);
-      document.body.style.fontSize = fontSize + "px";
-    });
-    $("#btnFontMinus").addEventListener("click", () => {
-      fontSize = Math.max(fontSize - 2, 14);
-      document.body.style.fontSize = fontSize + "px";
-    });
-    $("#btnContrast").addEventListener("click", () => {
-      const on = document.body.classList.toggle("hc");
-      $("#btnContrast").setAttribute("aria-pressed", on ? "true" : "false");
-    });
+    state.adaptations.clear();
+    state.resultText = '';
+    document.getElementById('result-section').classList.remove('visible');
+    document.getElementById('result-text-main').textContent = '';
+    document.getElementById('result-raw').textContent = '';
+    stopSpeech();
+  }
+ 
+  let toastTimer = null;
+  function showToast(msg, type = 'ok') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.background = type === 'error' ? '#DC2626' : type === 'warn' ? '#D97706' : 'var(--color-text)';
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+  }
+ 
+  // ══════════════════════════════════════════════════════════════════
+  // ENTER en formulario auth
+  // ══════════════════════════════════════════════════════════════════
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const modal = document.getElementById('auth-modal');
+      if (modal && !modal.classList.contains('hidden')) {
+        const activePanel = document.querySelector('.tab-panel.active');
+        if (activePanel && activePanel.id === 'panel-login') doLogin();
+        if (activePanel && activePanel.id === 'panel-register') doRegister();
+      }
+    }
+  });
   </script>
 </body>
 </html>
+ 
