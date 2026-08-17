@@ -692,11 +692,9 @@
        JAVASCRIPT
   ══════════════════════════════════════════════════════════════════ -->
   <script>
-  // ─── CONSTANTES ───────────────────────────────────────────────────
   const WEBHOOK_URL = 'https://patrick123.app.n8n.cloud/webhook/eduinclusiva'; // ← reemplazar
   const LS_USER_KEY = 'edu_user_v2';
  
-  // ─── ESTADO ───────────────────────────────────────────────────────
   let state = {
     file: null,
     fileType: null,       // 'image' | 'text-file' | null
@@ -708,9 +706,6 @@
     isSpeaking: false,
   };
  
-  // ══════════════════════════════════════════════════════════════════
-  // AUTH
-  // ══════════════════════════════════════════════════════════════════
   function getUsers() {
     try { return JSON.parse(localStorage.getItem('edu_users') || '{}'); }
     catch { return {}; }
@@ -748,7 +743,6 @@
     if (users[email] && users[email].pass !== btoa(pass)) {
       errEl.textContent = 'Contraseña incorrecta.'; return;
     }
-    // Si no existe → lo creamos (modo demo)
     if (!users[email]) {
       users[email] = { email, pass: btoa(pass), name: email.split('@')[0] };
       saveUsers(users);
@@ -801,15 +795,11 @@
       <span style="font-size:.85rem">${user.name}</span>`;
   }
  
-  // Auto-login si hay sesión guardada
   window.addEventListener('DOMContentLoaded', () => {
     const user = getCurrentUser();
     if (user) showApp(user);
   });
  
-  // ══════════════════════════════════════════════════════════════════
-  // PERFIL ADAPTATIVO
-  // ══════════════════════════════════════════════════════════════════
   function setProfile(profile, btn) {
     document.querySelectorAll('.chip').forEach(c => {
       c.classList.remove('active');
@@ -827,7 +817,6 @@
       document.body.classList.add('profile-' + profile);
     }
  
-    // Priorizar secciones según perfil
     document.querySelectorAll('.section-priority').forEach(el => el.classList.remove('section-priority'));
     document.querySelectorAll('.priority-badge').forEach(el => el.remove());
  
@@ -849,7 +838,6 @@
             badge.textContent = 'Prioridad';
             labelEl.appendChild(badge);
           }
-          // Auto-seleccionar
           const chk = el.querySelector('input[type="checkbox"]');
           if (chk && !chk.checked) { chk.checked = true; state.adaptations.add(chk.value); }
           el.classList.add('checked');
@@ -857,7 +845,6 @@
       });
     }
  
-    // Mostrar/ocultar sección de audio según perfil
     const audioResultTab = document.getElementById('rtab-audio');
     if (audioResultTab) {
       audioResultTab.style.display = (profile === 'auditiva') ? 'none' : '';
@@ -866,9 +853,6 @@
     showToast('Perfil ' + btn.textContent.trim() + ' activado');
   }
  
-  // ══════════════════════════════════════════════════════════════════
-  // MANEJO DE ARCHIVOS — DETECCIÓN UNIVERSAL + BASE64 IMÁGENES
-  // ══════════════════════════════════════════════════════════════════
   const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
  
   function handleFileSelect(e) { handleFile(e.target.files[0]); }
@@ -900,7 +884,6 @@
     preview.classList.add('visible');
  
     if (isImage) {
-      // Convertir a Base64 limpiamente
       const reader = new FileReader();
       reader.onload = function(ev) {
         const dataUrl = ev.target.result;               // data:[mime];base64,[data]
@@ -914,7 +897,6 @@
     } else {
       thumb.style.display = 'none';
       thumb.src = '';
-      // Leer texto de archivos de texto
       if (file.type === 'text/plain') {
         const r2 = new FileReader();
         r2.onload = ev => { document.getElementById('text-input').value = ev.target.result; };
@@ -936,22 +918,15 @@
     return (b / 1048576).toFixed(1) + ' MB';
   }
  
-  // ══════════════════════════════════════════════════════════════════
-  // ADAPTACIONES — TOGGLE
-  // ══════════════════════════════════════════════════════════════════
   function toggleAdapt(chk, optId) {
     if (chk.checked) state.adaptations.add(chk.value);
     else state.adaptations.delete(chk.value);
     document.getElementById(optId).classList.toggle('checked', chk.checked);
   }
  
-  // ══════════════════════════════════════════════════════════════════
-  // PROCESAR CONTENIDO → WEBHOOK
-  // ══════════════════════════════════════════════════════════════════
   async function processContent() {
     const textInput = document.getElementById('text-input').value.trim();
  
-    // Validaciones
     if (!state.file && !textInput) {
       showToast('Subí un archivo o pegá texto antes de procesar', 'warn'); return;
     }
@@ -959,14 +934,12 @@
       showToast('Seleccioná al menos un tipo de adaptación', 'warn'); return;
     }
  
-    // Esperar a que la imagen termine de convertirse si aún está en curso
     if (state.fileType === 'image' && !state.fileBase64) {
       showToast('La imagen aún se está procesando, esperá un momento…', 'warn'); return;
     }
  
     setProcessing(true);
  
-    // ── Construir payload JSON limpio ──────────────────────────────
     const user = getCurrentUser() || {};
     const payload = {
       timestamp:   new Date().toISOString(),
@@ -976,7 +949,6 @@
     };
  
     if (state.fileType === 'image') {
-      // Imagen: base64 en campo separado, nunca dentro de texto
       payload.content_type   = 'image';
       payload.image_base64   = state.fileBase64;          // string base64 puro
       payload.image_mime     = state.fileMimeType;        // e.g. "image/png"
@@ -990,7 +962,6 @@
       payload.text_content = textInput;
     }
  
-    // ── Progreso animado ──────────────────────────────────────────
     animateProgress([
       { pct: 20, label: 'Enviando contenido al servidor…' },
       { pct: 50, label: 'IA procesando adaptaciones…' },
@@ -1012,7 +983,6 @@
         data = await res.json();
       } else {
         const raw = await res.text();
-        // Intentar parsear como JSON de todas formas
         try { data = JSON.parse(raw); } catch { data = { text: raw }; }
       }
  
@@ -1031,7 +1001,6 @@
   }
  
   function showResult(data) {
-    // Extraer texto de la respuesta (varios formatos posibles)
     const text =
       data.adapted_text ||
       data.result       ||
@@ -1052,9 +1021,6 @@
     showToast('Contenido adaptado con éxito ✅');
   }
  
-  // ══════════════════════════════════════════════════════════════════
-  // TEXTO A VOZ (Web Speech API)
-  // ══════════════════════════════════════════════════════════════════
   function speakResult() {
     if (!('speechSynthesis' in window)) {
       showToast('Tu navegador no soporta síntesis de voz', 'warn'); return;
@@ -1076,9 +1042,6 @@
     if (btn) btn.textContent = '▶ Reproducir';
   }
  
-  // ══════════════════════════════════════════════════════════════════
-  // PROGRESO
-  // ══════════════════════════════════════════════════════════════════
   let progressTimer = null;
  
   function animateProgress(steps) {
@@ -1109,9 +1072,6 @@
     }
   }
  
-  // ══════════════════════════════════════════════════════════════════
-  // RESULT TABS
-  // ══════════════════════════════════════════════════════════════════
   function switchResultTab(tab) {
     document.querySelectorAll('.result-tab').forEach(t => {
       t.classList.remove('active'); t.setAttribute('aria-selected', 'false');
@@ -1123,9 +1083,6 @@
     if (cnt) cnt.classList.add('active');
   }
  
-  // ══════════════════════════════════════════════════════════════════
-  // UTILIDADES
-  // ══════════════════════════════════════════════════════════════════
   function copyResult() {
     navigator.clipboard.writeText(state.resultText)
       .then(() => showToast('Texto copiado al portapapeles ✅'))
@@ -1166,9 +1123,6 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
   }
  
-  // ══════════════════════════════════════════════════════════════════
-  // ENTER en formulario auth
-  // ══════════════════════════════════════════════════════════════════
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       const modal = document.getElementById('auth-modal');
