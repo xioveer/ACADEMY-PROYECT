@@ -1076,7 +1076,6 @@
     if (user) showApp(user);
   });
 
-  // Enter en modales
   document.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
     const modal = document.getElementById('auth-modal');
@@ -1105,7 +1104,6 @@
     S.profile = profile;
     if (profile !== 'default') document.body.classList.add('profile-' + profile);
 
-    // limpiar prioridades previas
     document.querySelectorAll('.section-priority').forEach(el => {
       el.classList.remove('section-priority');
       el.querySelectorAll('.priority-badge').forEach(b => b.remove());
@@ -1159,7 +1157,6 @@
     if (isImg) {
       const reader = new FileReader();
       reader.onload = ev => {
-        // Separamos limpiamente: [0]=data:[mime];base64 [1]=datos
         S.fileBase64 = ev.target.result.split(',')[1];
         thumb.src = ev.target.result;
         thumb.alt = 'Vista previa de ' + file.name;
@@ -1211,7 +1208,6 @@
 
     setProcessing(true);
 
-    // ── Payload JSON siempre válido ──
     const user = getCurrentUser() || {};
     const payload = {
       timestamp:   new Date().toISOString(),
@@ -1221,7 +1217,6 @@
     };
 
     if (S.fileType === 'image') {
-      // Base64 en campo dedicado — nunca mezclado con texto
       Object.assign(payload, {
         content_type:   'image',
         image_base64:   S.fileBase64,     // string base64 puro, sin prefijo data:
@@ -1249,11 +1244,8 @@
       });
       setProgress(98, '¡Listo!');
 
-      // ── Leer siempre como texto primero para evitar "Unexpected end of JSON input"
-      //    cuando n8n devuelve 200/204 con cuerpo vacío, texto plano o un JSON parcial.
       const rawText = await res.text();               // nunca lanza, siempre devuelve string
 
-      // HTTP error → mostrar mensaje claro sin lanzar excepción genérica
       if (!res.ok) {
         const httpMsg = rawText.trim() || `HTTP ${res.status} ${res.statusText}`;
         renderFallback(`El servidor respondió con un error (${res.status}):\n${httpMsg}`);
@@ -1261,7 +1253,6 @@
         return;
       }
 
-      // Respuesta vacía o solo whitespace (n8n 200/204 sin body)
       if (!rawText.trim()) {
         renderFallback(
           '✅ El backend recibió la solicitud correctamente.\n\n' +
@@ -1273,19 +1264,16 @@
         return;
       }
 
-      // Intentar parsear como JSON; si falla, tratar como texto/HTML plano
       let data;
       try {
         data = JSON.parse(rawText);
       } catch {
-        // n8n devolvió texto plano o HTML directamente → envolverlo
         data = { adapted_text: rawText };
       }
 
       renderResult(data);
 
     } catch (err) {
-      // Solo errores de red o CORS llegan aquí (fetch en sí falló)
       console.error('[EduInclusiva] fetch error:', err);
       renderFallback(
         '⚠️ No se pudo conectar con el servidor.\n\n' +
@@ -1337,7 +1325,6 @@
      RENDER RESULTADO — HTML sanitizado
   ══════════════════════════════════════════════ */
   function renderResult(data) {
-    // 1. Extraer contenido de la respuesta (varios formatos)
     const raw =
       data?.adapted_text ?? data?.result ?? data?.output ?? data?.html ??
       data?.text ?? data?.content ??
@@ -1348,29 +1335,22 @@
 
     const content = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
 
-    // 2. Determinar si es HTML o texto plano
     const looksLikeHtml = /<(p|h[1-6]|ul|ol|li|strong|em|br|div|table|blockquote|hr)[\s>]/i.test(content);
 
     const container = document.getElementById('result-html-main');
 
     if (looksLikeHtml) {
-      // 3a. HTML → sanitizar y renderizar
       container.innerHTML = sanitizeHtml(content);
     } else {
-      // 3b. Texto plano → convertir markdown básico a HTML
       container.innerHTML = plainToHtml(content);
     }
 
-    // 4. Texto plano para TTS y descarga
     S.resultText = container.innerText || container.textContent || content;
 
-    // 5. Raw JSON
     document.getElementById('result-raw').textContent = JSON.stringify(data, null, 2);
 
-    // 6. Mostrar sección
     const section = document.getElementById('result-section');
     section.classList.add('visible');
-    // Re-renderizar íconos Lucide dentro de la sección si existen
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
     requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     showToast('Contenido adaptado ✅');
@@ -1385,9 +1365,7 @@
   const STRIP_TAGS = /(<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<iframe[\s\S]*?<\/iframe>|on\w+="[^"]*"|on\w+='[^']*'|javascript:[^"']*)*/gi;
 
   function sanitizeHtml(html) {
-    // Quitar scripts, event handlers inline
     let clean = html.replace(STRIP_TAGS, '');
-    // Parsear y reconstruir solo etiquetas permitidas
     const doc = new DOMParser().parseFromString(clean, 'text/html');
     function walk(node, out) {
       node.childNodes.forEach(child => {
@@ -1397,7 +1375,6 @@
           const tag = child.tagName.toLowerCase();
           if (ALLOWED_TAGS.has(tag)) {
             const el = document.createElement(tag);
-            // Copiar solo atributos seguros
             ['class','id','lang','dir','colspan','rowspan','scope'].forEach(attr => {
               if (child.hasAttribute(attr)) el.setAttribute(attr, child.getAttribute(attr));
             });
