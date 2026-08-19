@@ -10,6 +10,7 @@
   }
 
   const LS_USER_KEY  = 'edu_user_v2';
+  const CONSENT_KEY  = 'edu_consent_v1';
   const IMAGE_TYPES  = ['image/jpeg', 'image/png', 'image/webp'];
   const POLL_INTERVAL_MS  = 2500;   // frecuencia de consulta del estado del job
   const POLL_MAX_ATTEMPTS = 48;     // 48 × 2.5s ≈ 2 min de timeout total
@@ -110,10 +111,11 @@
     document.getElementById('auth-modal').classList.add('hidden');
     document.getElementById('app-main').classList.add('visible');
     document.getElementById('logout-btn').style.display = 'inline-flex';
-    const initials = user.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const rawName = user.name || '';
+    const initials = escHtml(rawName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase());
     document.getElementById('user-badge').innerHTML =
       `<div class="user-avatar" aria-hidden="true">${initials}</div>
-       <span>${user.name}</span>`;
+       <span>${escHtml(rawName)}</span>`;
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
   }
 
@@ -121,9 +123,17 @@
     const user = getCurrentUser();
     if (user) showApp(user);
     applyProfile(S.profile);
+    if (!localStorage.getItem(CONSENT_KEY)) {
+      document.getElementById('consent-banner')?.classList.remove('hidden');
+    }
   });
 
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const legal = document.getElementById('modal-legal');
+      if (legal && !legal.classList.contains('hidden')) closeLegalModal();
+      return;
+    }
     if (e.key !== 'Enter') return;
     const modal = document.getElementById('auth-modal');
     if (modal && !modal.classList.contains('hidden')) {
@@ -132,6 +142,34 @@
       if (panel?.id === 'panel-register') doRegister();
     }
   });
+
+  /* ══════════════════════════════════════════════
+     LEGAL (términos / privacidad / deslinde de IA)
+     + CONSENTIMIENTO DE ALMACENAMIENTO LOCAL
+  ══════════════════════════════════════════════ */
+  function switchLegalTab(t) {
+    ['terms','privacy','disclaimer'].forEach(id => {
+      const active = id === t;
+      document.getElementById('ltab-' + id).classList.toggle('active', active);
+      document.getElementById('ltab-' + id).setAttribute('aria-selected', active);
+      document.getElementById('lpanel-' + id).classList.toggle('active', active);
+    });
+  }
+
+  function openLegalModal(tab) {
+    switchLegalTab(tab || 'terms');
+    document.getElementById('modal-legal')?.classList.remove('hidden');
+    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+  }
+
+  function closeLegalModal() {
+    document.getElementById('modal-legal')?.classList.add('hidden');
+  }
+
+  function acceptConsent() {
+    localStorage.setItem(CONSENT_KEY, '1');
+    document.getElementById('consent-banner')?.classList.add('hidden');
+  }
 
   /* ══════════════════════════════════════════════
      PERFIL DE ADAPTACIÓN (Paso 1)
@@ -508,7 +546,9 @@
           const tag = child.tagName.toLowerCase();
           if (ALLOWED_TAGS.has(tag)) {
             const el = document.createElement(tag);
-            ['class','id','lang','dir','colspan','rowspan','scope'].forEach(attr => {
+            /* 'id' queda excluido a propósito: un id inyectado por el contenido
+               del webhook podría colisionar/"clobbear" ids reales del DOM. */
+            ['class','lang','dir','colspan','rowspan','scope'].forEach(attr => {
               if (child.hasAttribute(attr)) el.setAttribute(attr, child.getAttribute(attr));
             });
             walk(child, el);
@@ -575,7 +615,7 @@
   function setProgress(pct, label) {
     document.getElementById('progress-fill').style.width = pct + '%';
     document.getElementById('progress-label').innerHTML =
-      `<i data-lucide="loader-2" style="width:13px;height:13px;animation:spin 1s linear infinite"></i>${label}`;
+      `<i data-lucide="loader-2" style="width:13px;height:13px;animation:spin 1s linear infinite"></i>${escHtml(String(label))}`;
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
   }
   function setProcessing(on) {
@@ -651,7 +691,7 @@
   function showToast(msg, type = 'ok') {
     const t = document.getElementById('toast');
     const icon = type === 'error' ? '✕' : type === 'warn' ? '⚠' : '✓';
-    t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+    t.innerHTML = `<span>${icon}</span><span>${escHtml(String(msg))}</span>`;
     t.style.background = type === 'error' ? '#DC2626' : type === 'warn' ? '#D97706' : 'var(--color-text)';
     t.classList.add('show');
     clearTimeout(_toastTimer);
@@ -670,4 +710,5 @@
     toggleAdapt, processContent, clearAll, copyResult, downloadTxt,
     printResult, toggleReadingMode,
     switchResultTab, speakResult, stopSpeech,
+    openLegalModal, closeLegalModal, switchLegalTab, acceptConsent,
   });

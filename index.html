@@ -15,13 +15,13 @@
     import { createIcons, Eye, Zap, Ear, FileText, Image, Upload, Mic, Copy,
              Download, Trash2, LogOut, CheckCircle2, AlertCircle, Loader2,
              Play, Square, RefreshCw, ChevronRight, BookOpen, Brain,
-             Palette, Accessibility, Volume2, AlignLeft } from
+             Palette, Accessibility, Volume2, AlignLeft, X, Shield } from
       'https://cdn.jsdelivr.net/npm/lucide@latest/dist/esm/lucide.js';
     window._lucide = { createIcons, icons: {
       Eye, Zap, Ear, FileText, Image, Upload, Mic, Copy, Download,
       Trash2, LogOut, CheckCircle2, AlertCircle, Loader2, Play, Square,
       RefreshCw, ChevronRight, BookOpen, Brain, Palette, Accessibility,
-      Volume2, AlignLeft
+      Volume2, AlignLeft, X, Shield
     }};
     document.addEventListener('DOMContentLoaded', () => {
       createIcons({ icons: window._lucide.icons });
@@ -629,6 +629,66 @@
     }
 
     /* ══════════════════════════════════════════════
+       FOOTER LEGAL
+    ══════════════════════════════════════════════ */
+    .app-footer {
+      max-width: 880px; margin: 2rem auto 0; padding: 1.4rem 1.5rem 2rem;
+      border-top: 1px solid var(--color-border);
+      text-align: center;
+    }
+    .footer-links {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem 1.4rem;
+      margin-bottom: .7rem;
+    }
+    .footer-link {
+      background: none; border: none; padding: 0; cursor: pointer;
+      font-family: var(--font-ui); font-size: .82rem; font-weight: 600;
+      color: var(--color-muted); text-decoration: underline; text-underline-offset: 2px;
+    }
+    .footer-link:hover { color: var(--color-primary); }
+    .footer-copy { font-size: .78rem; color: var(--color-muted); line-height: 1.5; }
+
+    /* ══════════════════════════════════════════════
+       MODAL LEGAL (Términos / Privacidad / Deslinde IA)
+    ══════════════════════════════════════════════ */
+    .modal-box-lg { max-width: 620px; }
+    .modal-close {
+      position: absolute; top: 1.1rem; right: 1.1rem;
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-muted); background: transparent;
+    }
+    .modal-close:hover { background: var(--color-primary-xl); color: var(--color-primary); }
+    .legal-content { font-size: .88rem; line-height: 1.7; color: var(--color-text); }
+    .legal-content h4 { font-family: var(--font-ui); font-size: .95rem; margin: 1.1em 0 .35em; }
+    .legal-content h4:first-child { margin-top: 0; }
+    .legal-content p { margin-bottom: .8em; }
+    .legal-content ul { padding-left: 1.3em; margin-bottom: .8em; }
+    .legal-content li { margin-bottom: .35em; }
+    .legal-disclaimer-callout {
+      display: flex; gap: .7rem; align-items: flex-start;
+      background: var(--color-primary-xl); border: 1px solid var(--color-primary);
+      border-radius: var(--radius-sm); padding: 1rem 1.1rem;
+      margin-bottom: 1rem; font-weight: 600; font-size: .87rem;
+    }
+
+    /* ══════════════════════════════════════════════
+       BANNER DE CONSENTIMIENTO (localStorage)
+    ══════════════════════════════════════════════ */
+    #consent-banner {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 800;
+      background: var(--color-text); color: #fff;
+      padding: .9rem 1.4rem;
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; justify-content: center;
+      box-shadow: 0 -4px 24px rgba(0,0,0,.18);
+      font-family: var(--font-ui);
+    }
+    #consent-banner.hidden { display: none; }
+    #consent-banner p { margin: 0; flex: 1 1 320px; min-width: 240px; font-size: .82rem; line-height: 1.5; }
+    #consent-banner a { color: #fff; text-decoration: underline; }
+    #consent-banner .btn { flex-shrink: 0; }
+
+    /* ══════════════════════════════════════════════
        RESPONSIVE — Mobile-first fixes
     ══════════════════════════════════════════════ */
     @media (max-width: 640px) {
@@ -660,6 +720,10 @@
 
       /* Textarea: altura mínima touch-friendly */
       textarea { min-height: 100px; }
+
+      /* Banner de consentimiento: apilado en mobile */
+      #consent-banner { flex-direction: column; align-items: stretch; text-align: center; }
+      #consent-banner .btn { justify-content: center; }
     }
     @media (max-width: 380px) {
       .adapt-grid { grid-template-columns: 1fr; }
@@ -756,6 +820,66 @@
           <i data-lucide="chevron-right" style="width:16px;height:16px"></i>
         </button>
         <p class="modal-footer">¿Ya tenés cuenta? <a href="#" onclick="switchTab('login');return false">Iniciar sesión</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       MODAL LEGAL (Términos / Privacidad / Deslinde de IA)
+  ══════════════════════════════════════════════════════ -->
+  <div id="modal-legal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="legal-title"
+    onclick="if(event.target===this) closeLegalModal()">
+    <div class="modal-box modal-box-lg" style="position:relative">
+      <button type="button" class="modal-close" onclick="closeLegalModal()" aria-label="Cerrar">
+        <i data-lucide="x" style="width:16px;height:16px"></i>
+      </button>
+      <h1 class="modal-title" id="legal-title">Información legal</h1>
+      <p class="modal-subtitle">Términos, privacidad y alcance de la IA en EduInclusiva</p>
+
+      <div class="modal-tabs" role="tablist">
+        <button class="modal-tab active" id="ltab-terms" role="tab" aria-selected="true"
+          aria-controls="lpanel-terms" onclick="switchLegalTab('terms')">Términos</button>
+        <button class="modal-tab" id="ltab-privacy" role="tab" aria-selected="false"
+          aria-controls="lpanel-privacy" onclick="switchLegalTab('privacy')">Privacidad</button>
+        <button class="modal-tab" id="ltab-disclaimer" role="tab" aria-selected="false"
+          aria-controls="lpanel-disclaimer" onclick="switchLegalTab('disclaimer')">Deslinde de IA</button>
+      </div>
+
+      <!-- Términos de Servicio -->
+      <div id="lpanel-terms" class="tab-panel active legal-content" role="tabpanel" aria-labelledby="ltab-terms">
+        <h4>Términos de Servicio</h4>
+        <p>Al usar EduInclusiva AI aceptás estos términos. La plataforma ayuda a docentes a adaptar material de estudio para estudiantes con discapacidad visual, auditiva o neurodivergencia, utilizando inteligencia artificial.</p>
+        <ul>
+          <li>El servicio se ofrece "tal cual", sin garantía de disponibilidad continua ni de ausencia de errores.</li>
+          <li>Sos responsable de la veracidad de los contenidos que subís y del uso que le des al material adaptado.</li>
+          <li>No está permitido subir contenido ilegal, con derechos de autor de terceros sin autorización, ni datos sensibles de estudiantes que no sean estrictamente necesarios.</li>
+          <li>Podemos actualizar estos términos; el uso continuado del servicio implica la aceptación de los cambios.</li>
+        </ul>
+      </div>
+
+      <!-- Política de Privacidad -->
+      <div id="lpanel-privacy" class="tab-panel legal-content" role="tabpanel" aria-labelledby="ltab-privacy">
+        <h4>Política de Privacidad</h4>
+        <p>Guardamos localmente en tu navegador (localStorage), no en un servidor propio nuestro, los siguientes datos:</p>
+        <ul>
+          <li>Tu sesión (nombre y correo) para mantenerte identificado entre visitas.</li>
+          <li>Tu preferencia de perfil de adaptación de accesibilidad.</li>
+          <li>Tu aceptación de este aviso de privacidad.</li>
+        </ul>
+        <p>El contenido que subís para adaptar (texto, archivos o imágenes) se envía a nuestro proveedor de automatización (n8n) y a los servicios de IA que este orqueste, únicamente para generar la adaptación solicitada.</p>
+        <p>No vendemos datos personales ni usamos cookies de rastreo publicitario. Podés borrar tu sesión y preferencias en cualquier momento cerrando sesión o limpiando el almacenamiento local del navegador. Este tratamiento se realiza conforme a la normativa de protección de datos aplicable en tu jurisdicción (p. ej. habeas data / RGPD).</p>
+      </div>
+
+      <!-- Aviso de Deslinde de Responsabilidad de IA -->
+      <div id="lpanel-disclaimer" class="tab-panel legal-content" role="tabpanel" aria-labelledby="ltab-disclaimer">
+        <h4>Aviso de Deslinde de Responsabilidad de IA</h4>
+        <div class="legal-disclaimer-callout">
+          <i data-lucide="alert-circle" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;color:var(--color-primary)"></i>
+          <span>EduInclusiva AI es una <strong>herramienta de apoyo docente</strong>. No emite diagnósticos médicos, clínicos, psicológicos ni psicopedagógicos.</span>
+        </div>
+        <p>Las adaptaciones generadas por inteligencia artificial son sugerencias de material didáctico y pueden contener errores o imprecisiones. Deben ser revisadas por el/la docente antes de su uso en el aula.</p>
+        <p>Esta herramienta no reemplaza la evaluación de profesionales certificados (psicopedagogos/as, fonoaudiólogos/as, psicólogos/as u otros especialistas) para determinar necesidades educativas específicas o para emitir cualquier tipo de diagnóstico.</p>
+        <p>Ante cualquier duda sobre una condición médica, del desarrollo o de aprendizaje, consultá siempre a un profesional de la salud o de la educación especializado.</p>
       </div>
     </div>
   </div>
@@ -1074,10 +1198,32 @@
 
       </section>
     </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         FOOTER LEGAL
+    ══════════════════════════════════════════════════════ -->
+    <footer class="app-footer">
+      <div class="footer-links">
+        <button type="button" class="footer-link" onclick="openLegalModal('terms')">Términos de Servicio</button>
+        <button type="button" class="footer-link" onclick="openLegalModal('privacy')">Política de Privacidad</button>
+        <button type="button" class="footer-link" onclick="openLegalModal('disclaimer')">Aviso de Deslinde de Responsabilidad de IA</button>
+      </div>
+      <p class="footer-copy">EduInclusiva AI es una herramienta de apoyo docente. No emite diagnósticos médicos, clínicos ni psicopedagógicos.</p>
+    </footer>
   </main>
 
   <!-- TOAST -->
   <div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- BANNER DE CONSENTIMIENTO (uso de localStorage) -->
+  <div id="consent-banner" class="hidden" role="region" aria-label="Aviso de uso de almacenamiento local">
+    <p>
+      <i data-lucide="shield" style="width:14px;height:14px;vertical-align:-2px;margin-right:.3rem"></i>
+      Usamos <strong>almacenamiento local del navegador</strong> (localStorage) para guardar tu sesión y tus preferencias de accesibilidad. No usamos cookies de rastreo publicitario.
+      <a href="#" onclick="openLegalModal('privacy');return false">Más info</a>.
+    </p>
+    <button type="button" class="btn btn-primary btn-sm" onclick="acceptConsent()">Entendido</button>
+  </div>
 
   <!-- Loader spin keyframe -->
   <style>
