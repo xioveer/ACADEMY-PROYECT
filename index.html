@@ -1252,7 +1252,7 @@
             ondragleave="this.classList.remove('dragover')"
             ondrop="handleDrop(event)">
             <input type="file" id="file-input-ceguera"
-              accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp"
+              accept=".pdf,.txt,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp"
               onchange="handleFileSelect(event)" aria-label="Seleccionar archivo" />
             <div class="upload-icon">📂</div>
             <p><strong>Enter para subir</strong> un archivo, o pegá el texto abajo</p>
@@ -1355,7 +1355,7 @@
             ondragleave="this.classList.remove('dragover')"
             ondrop="handleDrop(event)">
             <input type="file" id="file-input-auditivo"
-              accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp"
+              accept=".pdf,.txt,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp"
               onchange="handleFileSelect(event)" aria-label="Seleccionar archivo" />
             <div class="upload-icon">📂</div>
             <p><strong>Click para subir</strong> o arrastrá aquí</p>
@@ -1423,7 +1423,7 @@
             ondragleave="this.classList.remove('dragover')"
             ondrop="handleDrop(event)">
             <input type="file" id="file-input-baja-vision"
-              accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp"
+              accept=".pdf,.txt,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp"
               onchange="handleFileSelect(event)" aria-label="Seleccionar archivo" />
             <div class="upload-icon">📂</div>
             <p><strong>Tocá para subir</strong> un archivo</p>
@@ -1510,7 +1510,7 @@
             ondragleave="this.classList.remove('dragover')"
             ondrop="handleDrop(event)">
             <input type="file" id="file-input-tdah"
-              accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp"
+              accept=".pdf,.txt,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp"
               onchange="handleFileSelect(event)" aria-label="Seleccionar archivo" />
             <div class="upload-icon">📂</div>
             <p><strong>Click para subir</strong> o arrastrá aquí</p>
@@ -1665,12 +1665,12 @@
           ondragleave="this.classList.remove('dragover')"
           ondrop="handleDrop(event)">
           <input type="file" id="file-input"
-            accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp"
+            accept=".pdf,.txt,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp"
             onchange="handleFileSelect(event)"
             aria-label="Seleccionar archivo" />
           <div class="upload-icon">📂</div>
           <p><strong>Click para subir</strong> o arrastrá aquí</p>
-          <p style="font-size:.8rem">PDF · TXT · DOCX · JPG · PNG · WEBP</p>
+          <p style="font-size:.8rem">PDF · TXT · DOCX · XLSX · PPTX · JPG · PNG · WEBP</p>
           <!-- Botón extra visible solo en touch -->
           <button class="btn btn-ghost btn-sm upload-cta" onclick="triggerFileInput();event.stopPropagation()" aria-label="Seleccionar archivo desde el dispositivo">
             <i data-lucide="image" style="width:14px;height:14px"></i>

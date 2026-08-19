@@ -69,7 +69,8 @@
   /* ── ESTADO GLOBAL ── */
   const S = {
     file: null, fileType: null, fileBase64: null, fileMime: null,
-    extracting: false, // true mientras se extrae texto de un PDF/DOCX en el navegador
+    extracting: false, // true mientras se extrae texto de un archivo en el navegador
+    extractionId: 0,   // invalida extracciones que terminan después de cambiar de archivo
     adaptations: new Set(),
     profile: 'tdah',
     resultText: '',   // texto plano para TTS y descarga
@@ -497,6 +498,7 @@
 
   function processFile(file) {
     if (!file) return;
+    S.extractionId += 1;
     S.file = file; S.fileBase64 = null; S.fileMime = file.type;
     const isImg = IMAGE_TYPES.includes(file.type);
     S.fileType = isImg ? 'image' : 'text-file';
@@ -519,11 +521,13 @@
     } else {
       thumb.style.display = 'none';
       thumb.src = '';
-      extractTextFromFile(file); // PDF / DOCX / TXT → vuelca el texto extraído en el textarea
+      extractTextFromFile(file, S.extractionId); // extrae localmente y vuelca el texto en el textarea
     }
   }
 
   function clearFile() {
+    S.extractionId += 1;
+    S.extracting = false;
     S.file = null; S.fileBase64 = null; S.fileMime = null; S.fileType = null;
     document.getElementById(S.ui.fileInputId).value = '';
     document.getElementById(S.ui.filePreviewId).classList.remove('visible');
@@ -538,13 +542,13 @@
   }
 
   /* ══════════════════════════════════════════════
-     EXTRACCIÓN DE TEXTO EN EL NAVEGADOR — PDF / DOCX / TXT
+     EXTRACCIÓN DE TEXTO EN EL NAVEGADOR — PDF / DOCX / XLSX / PPTX / TXT
      (soluciona que el payload viaje vacío hacia n8n; todo se
      procesa localmente, el archivo original nunca se sube al
      webhook — si Supabase Storage está configurado, se sube por
      separado y en paralelo, ver processContent())
   ══════════════════════════════════════════════ */
-  const MAX_EXTRACT_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+  const MAX_EXTRACT_FILE_SIZE = 50 * 1024 * 1024; // permite documentos educativos pesados
 
   /* Carga pdfjs-dist / mammoth de forma diferida (dynamic import) para no
      inflar el bundle inicial con librerías que la mayoría de las visitas
@@ -569,6 +573,26 @@
     return _mammothPromise;
   }
 
+  let _jszipPromise = null;
+  function loadJsZip() {
+    if (!_jszipPromise) _jszipPromise = import('jszip').then(m => m.default ?? m);
+    return _jszipPromise;
+  }
+
+  /* Normaliza texto de cualquier origen antes de mostrarlo o enviarlo.
+     Conserva párrafos y tablas legibles, pero elimina caracteres invisibles,
+     espacios repetidos y saltos de línea excesivos que degradan el payload. */
+  function cleanExtractedText(value) {
+    return String(value || '')
+      .normalize('NFKC')
+      .replace(/\r\n?/g, '\n')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, '')
+      .replace(/[\t\f\v ]+/g, ' ')
+      .replace(/ *\n */g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
   async function extractPdfText(file) {
     const pdfjsLib = await loadPdfjs();
     const buffer = await file.arrayBuffer();
@@ -588,9 +612,17 @@
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      parts.push(content.items.map(it => it.str).join(' '));
+      const lines = [];
+      let line = '';
+      for (const item of content.items) {
+        line += item.str;
+        if (item.hasEOL) { lines.push(line); line = ''; }
+        else if (item.str) line += ' ';
+      }
+      if (line) lines.push(line);
+      parts.push(lines.join('\n'));
     }
-    return parts.join('\n\n').trim();
+    return parts.join('\n\n');
   }
 
   async function extractDocxText(file) {
@@ -602,7 +634,98 @@
     } catch {
       throw new Error('El archivo .docx está dañado o no es un documento de Word válido.');
     }
-    return result.value.trim();
+    return result.value;
+  }
+
+  function xmlTextElements(root) {
+    return Array.from(root.getElementsByTagName('*')).filter(node => node.localName === 't');
+  }
+
+  function textFromXml(root) {
+    return xmlTextElements(root).map(node => node.textContent || '').join('');
+  }
+
+  async function extractXlsxText(file) {
+    const JSZip = await loadJsZip();
+    let zip;
+    try {
+      zip = await JSZip.loadAsync(await file.arrayBuffer());
+    } catch {
+      throw new Error('El archivo .xlsx está dañado o no es un libro de Excel válido.');
+    }
+
+    const parseXml = async path => {
+      const entry = zip.file(path);
+      if (!entry) return null;
+      const xml = await entry.async('text');
+      const doc = new DOMParser().parseFromString(xml, 'application/xml');
+      if (doc.querySelector('parsererror')) throw new Error('El libro contiene XML inválido.');
+      return doc;
+    };
+    try {
+      const sharedStringsXml = await parseXml('xl/sharedStrings.xml');
+      const sharedStrings = sharedStringsXml
+        ? Array.from(sharedStringsXml.getElementsByTagName('*')).filter(node => node.localName === 'si').map(textFromXml)
+        : [];
+      const workbookXml = await parseXml('xl/workbook.xml');
+      if (!workbookXml) throw new Error('El libro no contiene hojas legibles.');
+      const relationsXml = await parseXml('xl/_rels/workbook.xml.rels');
+      const relationTargets = new Map(Array.from(relationsXml?.getElementsByTagName('*') || [])
+        .filter(node => node.localName === 'Relationship')
+        .map(node => [node.getAttribute('Id'), node.getAttribute('Target')]));
+      const sheets = Array.from(workbookXml.getElementsByTagName('*')).filter(node => node.localName === 'sheet');
+
+      const extracted = await Promise.all(sheets.map(async (sheet, index) => {
+        const relationId = sheet.getAttribute('r:id');
+        const target = relationTargets.get(relationId);
+        const path = target ? `xl/${target.replace(/^\/+/, '')}` : `xl/worksheets/sheet${index + 1}.xml`;
+        const sheetXml = await parseXml(path);
+        if (!sheetXml) return `Hoja: ${sheet.getAttribute('name') || index + 1} (vacía)`;
+        const rows = Array.from(sheetXml.getElementsByTagName('*')).filter(node => node.localName === 'row')
+          .map(row => Array.from(row.getElementsByTagName('*')).filter(node => node.localName === 'c').map(cell => {
+            const type = cell.getAttribute('t');
+            if (type === 'inlineStr') return textFromXml(cell);
+            const value = Array.from(cell.getElementsByTagName('*')).find(node => node.localName === 'v')?.textContent || '';
+            if (type === 's') return sharedStrings[Number(value)] || '';
+            if (type === 'b') return value === '1' ? 'Sí' : 'No';
+            return value;
+          }).filter(Boolean).join(' | ')).filter(Boolean);
+        const name = sheet.getAttribute('name') || `Hoja ${index + 1}`;
+        return rows.length ? `Hoja: ${name}\n${rows.join('\n')}` : `Hoja: ${name} (vacía)`;
+      }));
+      return extracted.join('\n\n');
+    } catch (err) {
+      if (err.message) throw err;
+      throw new Error('No se pudo leer el contenido del libro de Excel.');
+    }
+  }
+
+  function slideNumber(path) {
+    return Number((/slide(\d+)\.xml$/i.exec(path) || [])[1] || 0);
+  }
+
+  async function extractPptxText(file) {
+    const JSZip = await loadJsZip();
+    let zip;
+    try {
+      zip = await JSZip.loadAsync(await file.arrayBuffer());
+    } catch {
+      throw new Error('El archivo .pptx está dañado o no es una presentación válida.');
+    }
+    const slidePaths = Object.keys(zip.files)
+      .filter(path => /^ppt\/slides\/slide\d+\.xml$/i.test(path))
+      .sort((a, b) => slideNumber(a) - slideNumber(b));
+    if (!slidePaths.length) throw new Error('La presentación no contiene diapositivas legibles.');
+
+    const slides = await Promise.all(slidePaths.map(async (path, index) => {
+      const xml = await zip.file(path).async('text');
+      const documentXml = new DOMParser().parseFromString(xml, 'application/xml');
+      if (documentXml.querySelector('parsererror')) throw new Error('Una diapositiva contiene XML inválido.');
+      const text = xmlTextElements(documentXml)
+        .map(node => node.textContent || '').filter(Boolean).join(' ');
+      return text ? `Diapositiva ${index + 1}:\n${text}` : '';
+    }));
+    return slides.filter(Boolean).join('\n\n');
   }
 
   /* Feedback visual reutilizando el nombre de archivo ya visible (sin
@@ -620,7 +743,7 @@
     }
   }
 
-  async function extractTextFromFile(file) {
+  async function extractTextFromFile(file, extractionId) {
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     const textInput = document.getElementById(S.ui.textInputId);
 
@@ -644,25 +767,34 @@
         text = await extractPdfText(file);
       } else if (ext === 'docx' || file.type.includes('wordprocessingml')) {
         text = await extractDocxText(file);
+      } else if (ext === 'xlsx' || file.type.includes('spreadsheetml')) {
+        text = await extractXlsxText(file);
+      } else if (ext === 'pptx' || file.type.includes('presentationml')) {
+        text = await extractPptxText(file);
       } else if (ext === 'txt' || file.type === 'text/plain' || file.type === '') {
-        text = (await file.text()).trim();
+        text = await file.text();
       } else {
-        throw new Error('Formato no soportado para extracción de texto. Usá PDF, DOCX o TXT.');
+        throw new Error('Formato no soportado. Usá PDF, DOCX, XLSX, PPTX o TXT.');
       }
+
+      text = cleanExtractedText(text);
 
       if (!text) {
         throw new Error('No se pudo extraer texto de este archivo (¿está vacío o es una imagen escaneada sin texto?).');
       }
 
+      if (extractionId !== S.extractionId) return;
       textInput.value = text;
       showToast('Texto extraído de "' + file.name + '" ✅');
     } catch (err) {
       console.error('[EduInclusiva] Error extrayendo texto del archivo:', err);
       showToast('No se pudo leer "' + file.name + '": ' + err.message, 'error');
-      clearFile();
+      if (extractionId === S.extractionId) clearFile();
     } finally {
-      S.extracting = false;
-      setExtractingUi(false);
+      if (extractionId === S.extractionId) {
+        S.extracting = false;
+        setExtractingUi(false);
+      }
     }
   }
 
@@ -679,7 +811,7 @@
   ══════════════════════════════════════════════ */
   async function processContent() {
     if (S.extracting) { showToast('Esperá, todavía se está extrayendo el texto del archivo…', 'warn'); return; }
-    const txt = document.getElementById(S.ui.textInputId).value.trim();
+    const txt = cleanExtractedText(document.getElementById(S.ui.textInputId).value);
     if (!S.file && !txt) { showToast('Subí un archivo o pegá texto primero', 'warn'); return; }
     if (S.adaptations.size === 0) { showToast('Elegí al menos una adaptación', 'warn'); return; }
     if (S.fileType === 'image' && !S.fileBase64) { showToast('Esperá, la imagen aún se está leyendo…', 'warn'); return; }

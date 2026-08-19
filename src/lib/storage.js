@@ -9,7 +9,7 @@
 ══════════════════════════════════════════════ */
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 
-export const MAX_UPLOAD_FILE_SIZE = 20 * 1024 * 1024; // 20 MB — mismo cap que la extracción de texto
+export const MAX_UPLOAD_FILE_SIZE = 50 * 1024 * 1024; // mismo límite que la extracción de texto
 
 const UPLOADS_BUCKET = 'uploads';
 const AVATARS_BUCKET = 'avatars';
