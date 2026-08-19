@@ -19,6 +19,48 @@
   const JOB_DONE_STATUSES  = ['done', 'completed', 'success', 'finished'];
   const JOB_ERROR_STATUSES = ['error', 'failed', 'failure'];
 
+  /* Ids del DOM que usan processContent/renderResult/setProgress/TTS/etc.
+     S.ui apunta siempre a los ids de la vista activa — así toda la lógica
+     compartida (fetch, sanitización, polling, historial) es una sola
+     implementación que sirve a las 6 vistas, sin duplicarla. */
+  const DEFAULT_UI = {
+    textInputId: 'text-input', fileInputId: 'file-input', uploadZoneId: 'upload-zone',
+    filePreviewId: 'file-preview', fileNameId: 'file-name', previewThumbId: 'preview-thumb',
+    processBtnId: 'process-btn', progressWrapId: 'progress-wrap',
+    progressFillId: 'progress-fill', progressLabelId: 'progress-label',
+    resultSectionId: 'result-section', resultHtmlId: 'result-html-main', resultRawId: 'result-raw',
+    ttsPlayBtnId: 'tts-play-btn', ttsRateId: 'tts-rate', readingModeBtnId: 'reading-mode-btn',
+    autoSpeak: false,
+  };
+  const suffixedUi = (suffix, overrides = {}) => ({
+    textInputId: 'text-input-' + suffix, fileInputId: 'file-input-' + suffix,
+    uploadZoneId: 'upload-zone-' + suffix, filePreviewId: 'file-preview-' + suffix,
+    fileNameId: 'file-name-' + suffix, previewThumbId: 'preview-thumb-' + suffix,
+    processBtnId: 'process-btn-' + suffix, progressWrapId: 'progress-wrap-' + suffix,
+    progressFillId: 'progress-fill-' + suffix, progressLabelId: 'progress-label-' + suffix,
+    resultSectionId: 'result-section-' + suffix, resultHtmlId: 'result-html-' + suffix,
+    resultRawId: 'result-raw-' + suffix,
+    ttsPlayBtnId: 'tts-play-btn-' + suffix, ttsRateId: 'tts-rate-' + suffix,
+    readingModeBtnId: null, autoSpeak: false,
+    ...overrides,
+  });
+  const VIEW_UI = {
+    docente:  { ...DEFAULT_UI },
+    ceguera:  suffixedUi('ceguera', { autoSpeak: true }),
+    auditivo: suffixedUi('auditivo', { ttsPlayBtnId: null, ttsRateId: null }),
+    'baja-vision': suffixedUi('baja-vision'),
+    tdah:     suffixedUi('tdah'),
+  };
+
+  /* Perfil + adaptaciones que cada vista especializada del Lobby fuerza al entrar
+     (esas vistas no muestran el grid de checkboxes de Docente). */
+  const LOBBY_PROFILE_DEFAULTS = {
+    ceguera:       { profile: 'ceguera',      adaptations: ['ceguera'] },
+    auditivo:      { profile: 'auditivo',     adaptations: ['auditiva'] },
+    'baja-vision': { profile: 'baja-vision',  adaptations: ['baja_vision'] },
+    tdah:          { profile: 'tdah',         adaptations: ['tdah'] },
+  };
+
   /* ── ESTADO GLOBAL ── */
   const S = {
     file: null, fileType: null, fileBase64: null, fileMime: null,
@@ -26,6 +68,8 @@
     profile: 'tdah',
     resultText: '',   // texto plano para TTS y descarga
     pollAbort: null,  // { cancelled: bool } — permite cancelar el polling en curso
+    ui: { ...DEFAULT_UI },   // ids activos: los reasigna el router en cada navegación
+    tdahStep: 1,
   };
 
   /* ══════════════════════════════════════════════
@@ -107,6 +151,8 @@
     document.getElementById('login-email').value = '';
     document.getElementById('login-pass').value = '';
     clearAll();
+    stopSpeech();
+    window.history.replaceState(null, '', location.pathname + location.search); // limpia el hash de ruta
   }
 
   function showApp(user) {
@@ -119,12 +165,100 @@
       `<div class="user-avatar" aria-hidden="true">${initials}</div>
        <span>${escHtml(rawName)}</span>`;
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    navigateTo(currentRoute() || 'lobby');
+  }
+
+  /* ══════════════════════════════════════════════
+     ROUTER — Lobby + 5 interfaces especializadas
+  ══════════════════════════════════════════════ */
+  const ROUTES = ['lobby', 'ceguera', 'auditivo', 'baja-vision', 'tdah', 'docente'];
+
+  function currentRoute() {
+    const r = (location.hash || '').replace(/^#\/?/, '');
+    return ROUTES.includes(r) ? r : null;
+  }
+
+  /* Fija S.profile/S.adaptations para una vista especializada (sin tocar el
+     selector/checkboxes internos de Docente, que usan applyProfile()). */
+  function forceProfile(route) {
+    const def = LOBBY_PROFILE_DEFAULTS[route];
+    if (!def) return;
+    S.profile = def.profile;
+    S.adaptations = new Set(def.adaptations);
+  }
+
+  function navigateTo(route) {
+    if (!ROUTES.includes(route)) route = 'lobby';
+    if (currentRoute() === route) { renderRoute(); return; }
+    location.hash = '/' + route;
+  }
+
+  function renderRoute() {
+    const route = currentRoute() || 'lobby';
+    const prevRoute = document.querySelector('.view.active')?.id.replace('view-', '');
+    if (prevRoute === 'ceguera' && route !== 'ceguera') stopSpeech();
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + route)?.classList.add('active');
+
+    S.ui = { ...(VIEW_UI[route] || VIEW_UI.docente) };
+
+    if (route === 'docente') {
+      const checked = document.querySelector('input[name="adaptation-profile"]:checked');
+      applyProfile(checked ? checked.value : S.profile);
+    } else {
+      forceProfile(route);
+    }
+
+    if (route === 'tdah') goToTdahStep(1);
+    if (route === 'ceguera' && prevRoute !== 'ceguera') {
+      speak('Perfil ceguera y audio navegación activado. Escribí o pegá el contenido, o subí un archivo, y presioná procesar y escuchar.');
+    }
+    if (route === 'auditivo') {
+      ['auditivo-step-received', 'auditivo-step-processing', 'auditivo-step-done'].forEach(id => {
+        document.getElementById(id)?.classList.remove('is-active', 'is-done');
+      });
+      document.getElementById('auditivo-step-received')?.classList.add('is-active');
+    }
+
+    window.scrollTo(0, 0);
+    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+  }
+
+  window.addEventListener('hashchange', renderRoute);
+
+  /* ══════════════════════════════════════════════
+     WIZARD TDAH — pasos-tarjeta (contenido → confirmar → resultado)
+  ══════════════════════════════════════════════ */
+  function goToTdahStep(step) {
+    S.tdahStep = step;
+    [1, 2, 3].forEach(n => {
+      document.getElementById('tdah-step-' + n)?.classList.toggle('active', n === step);
+    });
+    const fill = document.getElementById('tdah-progress-fill');
+    if (fill) fill.style.width = Math.round((step / 3) * 100) + '%';
+    const label = document.getElementById('tdah-progress-label');
+    if (label) label.textContent = 'Paso ' + step + ' de 3';
+  }
+  function nextTdahStep() {
+    if (S.tdahStep === 1) {
+      const txt = document.getElementById(S.ui.textInputId).value.trim();
+      if (!S.file && !txt) { showToast('Subí un archivo o pegá texto primero', 'warn'); return; }
+    }
+    goToTdahStep(Math.min(S.tdahStep + 1, 3));
+  }
+  function prevTdahStep() {
+    goToTdahStep(Math.max(S.tdahStep - 1, 1));
+  }
+  /* Botón del paso 2 (Confirmar): avanza al paso 3 y dispara el procesamiento */
+  function submitTdahStep() {
+    goToTdahStep(3);
+    processContent();
   }
 
   window.addEventListener('DOMContentLoaded', () => {
     const user = getCurrentUser();
     if (user) showApp(user);
-    applyProfile(S.profile);
     if (!localStorage.getItem(CONSENT_KEY)) {
       document.getElementById('consent-banner')?.classList.remove('hidden');
     }
@@ -234,16 +368,16 @@
      MANEJO DE ARCHIVOS — Universal + Base64 limpio
   ══════════════════════════════════════════════ */
   function triggerFileInput() {
-    document.getElementById('file-input').click();
+    document.getElementById(S.ui.fileInputId).click();
   }
   function handleFileSelect(e) { processFile(e.target.files[0]); }
   function handleDragOver(e) {
     e.preventDefault();
-    document.getElementById('upload-zone').classList.add('dragover');
+    document.getElementById(S.ui.uploadZoneId).classList.add('dragover');
   }
   function handleDrop(e) {
     e.preventDefault();
-    document.getElementById('upload-zone').classList.remove('dragover');
+    document.getElementById(S.ui.uploadZoneId).classList.remove('dragover');
     processFile(e.dataTransfer.files[0]);
   }
 
@@ -253,10 +387,10 @@
     const isImg = IMAGE_TYPES.includes(file.type);
     S.fileType = isImg ? 'image' : 'text-file';
 
-    const preview = document.getElementById('file-preview');
-    document.getElementById('file-name').textContent = file.name + ' (' + fmtBytes(file.size) + ')';
+    const preview = document.getElementById(S.ui.filePreviewId);
+    document.getElementById(S.ui.fileNameId).textContent = file.name + ' (' + fmtBytes(file.size) + ')';
     preview.classList.add('visible');
-    const thumb = document.getElementById('preview-thumb');
+    const thumb = document.getElementById(S.ui.previewThumbId);
 
     if (isImg) {
       const reader = new FileReader();
@@ -273,7 +407,7 @@
       thumb.src = '';
       if (file.type === 'text/plain') {
         const r = new FileReader();
-        r.onload = ev => { document.getElementById('text-input').value = ev.target.result; };
+        r.onload = ev => { document.getElementById(S.ui.textInputId).value = ev.target.result; };
         r.readAsText(file);
       }
     }
@@ -281,9 +415,9 @@
 
   function clearFile() {
     S.file = null; S.fileBase64 = null; S.fileMime = null; S.fileType = null;
-    document.getElementById('file-input').value = '';
-    document.getElementById('file-preview').classList.remove('visible');
-    const thumb = document.getElementById('preview-thumb');
+    document.getElementById(S.ui.fileInputId).value = '';
+    document.getElementById(S.ui.filePreviewId).classList.remove('visible');
+    const thumb = document.getElementById(S.ui.previewThumbId);
     thumb.style.display = 'none'; thumb.src = '';
   }
 
@@ -305,7 +439,7 @@
      PROCESAR → WEBHOOK
   ══════════════════════════════════════════════ */
   async function processContent() {
-    const txt = document.getElementById('text-input').value.trim();
+    const txt = document.getElementById(S.ui.textInputId).value.trim();
     if (!S.file && !txt) { showToast('Subí un archivo o pegá texto primero', 'warn'); return; }
     if (S.adaptations.size === 0) { showToast('Elegí al menos una adaptación', 'warn'); return; }
     if (S.fileType === 'image' && !S.fileBase64) { showToast('Esperá, la imagen aún se está leyendo…', 'warn'); return; }
@@ -463,8 +597,8 @@
 
   /* Muestra un mensaje de estado amigable en el área de resultado (sin romper la UI) */
   function renderFallback(msg) {
-    const section  = document.getElementById('result-section');
-    const container = document.getElementById('result-html-main');
+    const section  = document.getElementById(S.ui.resultSectionId);
+    const container = document.getElementById(S.ui.resultHtmlId);
     const isPositive = msg.startsWith('✅');
 
     container.innerHTML =
@@ -485,7 +619,7 @@
       </div>`;
 
     S.resultText = msg;
-    document.getElementById('result-raw').textContent = '(sin JSON — respuesta vacía o texto plano)';
+    document.getElementById(S.ui.resultRawId).textContent = '(sin JSON — respuesta vacía o texto plano)';
     section.classList.add('visible');
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
     requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -512,7 +646,7 @@
 
     const looksLikeHtml = /<(p|h[1-6]|ul|ol|li|strong|em|br|div|table|blockquote|hr)[\s>]/i.test(content);
 
-    const container = document.getElementById('result-html-main');
+    const container = document.getElementById(S.ui.resultHtmlId);
 
     if (looksLikeHtml) {
       container.innerHTML = sanitizeHtml(content);
@@ -523,13 +657,18 @@
     S.resultText = container.innerText || container.textContent || content;
     saveToHistory(container.innerHTML);
 
-    document.getElementById('result-raw').textContent = JSON.stringify(data, null, 2);
+    document.getElementById(S.ui.resultRawId).textContent = JSON.stringify(data, null, 2);
 
-    const section = document.getElementById('result-section');
+    const section = document.getElementById(S.ui.resultSectionId);
     section.classList.add('visible');
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
     requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     showToast('Contenido adaptado ✅');
+    if (S.ui.autoSpeak) speak(S.resultText);
+
+    document.getElementById('auditivo-step-processing')?.classList.remove('is-active');
+    document.getElementById('auditivo-step-processing')?.classList.add('is-done');
+    document.getElementById('auditivo-step-done')?.classList.add('is-active');
   }
 
   /* Sanitizador ligero — lista blanca de etiquetas seguras */
@@ -684,22 +823,22 @@
     const item = getHistory().find(h => h.id === id);
     if (!item) { showToast('No se encontró esa adaptación', 'error'); return; }
 
-    const container = document.getElementById('result-html-main');
+    const container = document.getElementById(S.ui.resultHtmlId);
     // re-sanitizar igual que en el primer render: aunque el HTML guardado ya
     // salió sanitizado, es una capa extra de defensa sin costo real.
     container.innerHTML = item.html ? sanitizeHtml(item.html) : plainToHtml(item.content || '');
     S.resultText = container.innerText || container.textContent || item.content || '';
 
-    document.getElementById('result-raw').textContent = JSON.stringify(item, null, 2);
-    document.getElementById('result-section').classList.add('visible');
-    switchResultTab('html');
+    document.getElementById(S.ui.resultRawId).textContent = JSON.stringify(item, null, 2);
+    const section = document.getElementById(S.ui.resultSectionId);
+    section.classList.add('visible');
+    document.getElementById('rtab-html') && switchResultTab('html'); // solo existe en Docente
     closeHistoryModal();
 
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
-    requestAnimationFrame(() =>
-      document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'start' })
-    );
+    requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     showToast('Adaptación cargada desde el historial');
+    if (S.ui.autoSpeak) speak(S.resultText);
   }
 
   function deleteHistoryItem(id) {
@@ -719,41 +858,51 @@
   /* ══════════════════════════════════════════════
      TTS
   ══════════════════════════════════════════════ */
-  function speakResult() {
-    if (!('speechSynthesis' in window)) { showToast('Tu navegador no soporta síntesis de voz', 'warn'); return; }
-    stopSpeech();
-    const utt = new SpeechSynthesisUtterance(S.resultText);
+  /* Narración genérica (usada para autonarrar resultados y para las
+     instrucciones habladas del perfil Ceguera al entrar a la vista) */
+  function speak(text, onEnd) {
+    if (!('speechSynthesis' in window) || !text) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
     utt.lang = 'es-MX';
-    utt.rate = parseFloat(document.getElementById('tts-rate').value);
-    utt.onend = () => {
-      document.getElementById('tts-play-btn').innerHTML =
-        '<i data-lucide="play" style="width:14px;height:14px"></i> Escuchar';
-      if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
-    };
-    document.getElementById('tts-play-btn').innerHTML =
-      '<i data-lucide="volume-2" style="width:14px;height:14px;animation:spin 1s linear infinite"></i> Escuchando…';
-    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    const rateEl = S.ui.ttsRateId && document.getElementById(S.ui.ttsRateId);
+    utt.rate = rateEl ? parseFloat(rateEl.value) : 0.95;
+    if (onEnd) utt.onend = onEnd;
     window.speechSynthesis.speak(utt);
+  }
+
+  function speakResult() {
+    if (!S.ui.ttsPlayBtnId) return;
+    if (!('speechSynthesis' in window)) { showToast('Tu navegador no soporta síntesis de voz', 'warn'); return; }
+    const btn = document.getElementById(S.ui.ttsPlayBtnId);
+    speak(S.resultText, () => {
+      btn.innerHTML = '<i data-lucide="play" style="width:14px;height:14px"></i> Escuchar';
+      if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    });
+    btn.innerHTML = '<i data-lucide="volume-2" style="width:14px;height:14px;animation:spin 1s linear infinite"></i> Escuchando…';
+    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
   }
   function stopSpeech() {
     window.speechSynthesis?.cancel();
-    document.getElementById('tts-play-btn').innerHTML =
-      '<i data-lucide="play" style="width:14px;height:14px"></i> Escuchar';
-    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    const btn = S.ui.ttsPlayBtnId && document.getElementById(S.ui.ttsPlayBtnId);
+    if (btn) {
+      btn.innerHTML = '<i data-lucide="play" style="width:14px;height:14px"></i> Escuchar';
+      if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    }
   }
 
   /* ══════════════════════════════════════════════
      PROGRESO
   ══════════════════════════════════════════════ */
   function setProgress(pct, label) {
-    document.getElementById('progress-fill').style.width = pct + '%';
-    document.getElementById('progress-label').innerHTML =
+    document.getElementById(S.ui.progressFillId).style.width = pct + '%';
+    document.getElementById(S.ui.progressLabelId).innerHTML =
       `<i data-lucide="loader-2" style="width:13px;height:13px;animation:spin 1s linear infinite"></i>${escHtml(String(label))}`;
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
   }
   function setProcessing(on) {
-    const btn = document.getElementById('process-btn');
-    const wrap = document.getElementById('progress-wrap');
+    const btn = document.getElementById(S.ui.processBtnId);
+    const wrap = document.getElementById(S.ui.progressWrapId);
     btn.disabled = on;
     btn.innerHTML = on
       ? '<i data-lucide="loader-2" style="width:16px;height:16px;animation:spin 1s linear infinite"></i> Procesando…'
@@ -761,6 +910,10 @@
     wrap.classList.toggle('visible', on);
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
     if (!on) { setTimeout(() => wrap.classList.remove('visible'), 800); }
+
+    /* Stepper visual del perfil Auditivo (solo existe en esa vista; no-op en el resto) */
+    document.getElementById('auditivo-step-received')?.classList.toggle('is-done', on);
+    document.getElementById('auditivo-step-processing')?.classList.toggle('is-active', on);
   }
 
   /* ══════════════════════════════════════════════
@@ -798,15 +951,16 @@
   }
   /* Alterna tipografía accesible + espaciado ampliado sobre el resultado adaptado */
   function toggleReadingMode() {
-    const area = document.getElementById('result-html-main');
-    const btn  = document.getElementById('reading-mode-btn');
+    if (!S.ui.readingModeBtnId) return;
+    const area = document.getElementById(S.ui.resultHtmlId);
+    const btn  = document.getElementById(S.ui.readingModeBtnId);
     const on = area.classList.toggle('reading-mode');
     btn.setAttribute('aria-pressed', String(on));
     showToast(on ? 'Modo lectura activado' : 'Modo lectura desactivado');
   }
   function clearAll() {
     if (S.pollAbort) { S.pollAbort.cancelled = true; S.pollAbort = null; setProcessing(false); }
-    document.getElementById('text-input').value = '';
+    document.getElementById(S.ui.textInputId).value = '';
     clearFile();
     document.querySelectorAll('.adapt-option').forEach(el => {
       el.classList.remove('checked', 'section-priority');
@@ -814,9 +968,9 @@
       el.querySelectorAll('.priority-badge').forEach(b => b.remove());
     });
     S.adaptations.clear(); S.resultText = '';
-    document.getElementById('result-section').classList.remove('visible');
-    document.getElementById('result-html-main').innerHTML = '';
-    document.getElementById('result-raw').textContent = '';
+    document.getElementById(S.ui.resultSectionId).classList.remove('visible');
+    document.getElementById(S.ui.resultHtmlId).innerHTML = '';
+    document.getElementById(S.ui.resultRawId).textContent = '';
     stopSpeech();
   }
 
@@ -845,4 +999,5 @@
     switchResultTab, speakResult, stopSpeech,
     openLegalModal, closeLegalModal, switchLegalTab, acceptConsent,
     openHistoryModal, closeHistoryModal, loadHistoryItem, deleteHistoryItem, clearHistory,
+    navigateTo, nextTdahStep, prevTdahStep, submitTdahStep,
   });

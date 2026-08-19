@@ -15,13 +15,17 @@
     import { createIcons, Eye, Zap, Ear, FileText, Image, Upload, Mic, Copy,
              Download, Trash2, LogOut, CheckCircle2, AlertCircle, Loader2,
              Play, Square, RefreshCw, ChevronRight, BookOpen, Brain,
-             Palette, Accessibility, Volume2, AlignLeft, X, Shield, History } from
+             Palette, Accessibility, Volume2, AlignLeft, X, Shield, History,
+             LayoutGrid, EyeOff, GraduationCap, ArrowRight, ArrowLeft,
+             VolumeX } from
       'https://cdn.jsdelivr.net/npm/lucide@latest/dist/esm/lucide.js';
     window._lucide = { createIcons, icons: {
       Eye, Zap, Ear, FileText, Image, Upload, Mic, Copy, Download,
       Trash2, LogOut, CheckCircle2, AlertCircle, Loader2, Play, Square,
       RefreshCw, ChevronRight, BookOpen, Brain, Palette, Accessibility,
-      Volume2, AlignLeft, X, Shield, History
+      Volume2, AlignLeft, X, Shield, History,
+      LayoutGrid, EyeOff, GraduationCap, ArrowRight, ArrowLeft,
+      VolumeX
     }};
     document.addEventListener('DOMContentLoaded', () => {
       createIcons({ icons: window._lucide.icons });
@@ -284,6 +288,139 @@
     ══════════════════════════════════════════════ */
     #app-main { display: none; }
     #app-main.visible { display: block; }
+
+    /* ══════════════════════════════════════════════
+       ROUTER — una vista visible a la vez
+    ══════════════════════════════════════════════ */
+    .view { display: none; }
+    .view.active { display: block; animation: fadeUp .25s ease; }
+    .view-topbar { display: flex; align-items: center; padding: 1rem 1.5rem 0; }
+    .view-back {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .85rem; font-weight: 700; font-family: var(--font-ui);
+      color: var(--color-muted); background: none; border: none; padding: .4rem 0; cursor: pointer;
+    }
+    .view-back:hover { color: var(--color-primary); }
+    .view-shell { max-width: 720px; margin: 0 auto; padding: 1rem 1.5rem 3rem; }
+    .view-heading { font-family: var(--font-ui); font-weight: 800; font-size: 1.6rem; margin-bottom: .4rem; }
+    .view-sub { color: var(--color-muted); margin-bottom: 1.6rem; line-height: 1.6; font-size: .96rem; }
+
+    /* ══════════════════════════════════════════════
+       LOBBY — selección de perfil / interfaz
+    ══════════════════════════════════════════════ */
+    .lobby-wrap { max-width: 980px; margin: 0 auto; padding: 3rem 1.5rem 4rem; text-align: center; }
+    .lobby-title { font-family: var(--font-ui); font-size: 2rem; font-weight: 800; margin-bottom: .5rem; }
+    .lobby-sub {
+      color: var(--color-muted); font-size: 1.02rem; margin: 0 auto 2.4rem;
+      max-width: 620px; line-height: 1.6;
+    }
+    .lobby-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1.1rem; text-align: left;
+    }
+    .lobby-card {
+      display: flex; flex-direction: column; gap: .8rem;
+      background: var(--color-surface); border: 2px solid var(--color-border);
+      border-radius: var(--radius); padding: 1.6rem 1.4rem;
+      cursor: pointer; text-align: left; width: 100%;
+      transition: border-color var(--transition), transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow var(--transition);
+    }
+    .lobby-card:hover, .lobby-card:focus-visible {
+      border-color: var(--color-primary); transform: translateY(-3px);
+      box-shadow: 0 8px 24px color-mix(in srgb, var(--color-primary) 18%, transparent);
+      outline: none;
+    }
+    .lobby-card-icon {
+      width: 52px; height: 52px; border-radius: var(--radius-sm);
+      background: var(--color-primary-xl); color: var(--color-primary);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .lobby-card-title { font-family: var(--font-ui); font-size: 1.08rem; font-weight: 700; }
+    .lobby-card-desc { font-size: .86rem; color: var(--color-muted); line-height: 1.5; }
+    .lobby-card-docente { border-style: dashed; }
+
+    /* ══════════════════════════════════════════════
+       PERFIL CEGUERA / AUDIO-NAVEGACIÓN — contraste absoluto
+    ══════════════════════════════════════════════ */
+    #view-ceguera { background: #000; color: #FFD600; min-height: 100vh; }
+    #view-ceguera .view-back, #view-ceguera .view-sub { color: #FFD600; opacity: .85; }
+    #view-ceguera .view-heading { color: #FFD600; font-size: 1.8rem; }
+    #view-ceguera .card { background: #0A0A0A; border-color: #FFD600; }
+    #view-ceguera label { color: #FFD600; }
+    #view-ceguera .upload-zone { border-color: #FFD600; }
+    #view-ceguera .upload-zone:hover, #view-ceguera .upload-zone.dragover { background: #1a1600; }
+    #view-ceguera .upload-zone p { color: #FFD600; opacity: .8; }
+    #view-ceguera textarea, #view-ceguera input {
+      background: #111; color: #FFD600; border-color: #FFD600; font-size: 1.15rem;
+    }
+    #view-ceguera .btn-primary { background: #FFD600; color: #000; font-size: 1.15rem; padding: 1.1rem 1.7rem; }
+    #view-ceguera .btn-primary:hover { background: #E6C200; }
+    #view-ceguera .btn-ghost { border-color: #FFD600; color: #FFD600; }
+    #view-ceguera .btn-ghost:hover { background: #1a1600; }
+    #view-ceguera .result-html-area {
+      background: #000; color: #FFD600; border-color: #FFD600; font-size: 1.25rem; line-height: 2;
+    }
+    #view-ceguera .result-html-area h1, #view-ceguera .result-html-area h2,
+    #view-ceguera .result-html-area h3, #view-ceguera .result-html-area strong { color: #FFD600; }
+    #view-ceguera .kbd-hints {
+      border: 1px solid #FFD600; border-radius: var(--radius-sm);
+      padding: 1rem 1.2rem; margin-top: 1.4rem; font-size: .85rem; line-height: 1.9;
+    }
+    #view-ceguera .kbd-hints kbd {
+      background: #1a1600; border: 1px solid #FFD600; border-radius: 4px;
+      padding: .1rem .45rem; font-family: monospace;
+    }
+
+    /* ══════════════════════════════════════════════
+       PERFIL AUDITIVO — cero dependencias sonoras
+    ══════════════════════════════════════════════ */
+    .no-audio-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: var(--color-accent-xl); color: #065F46; border: 1px solid #A7F3D0;
+      border-radius: 99px; padding: .35rem .9rem; font-size: .78rem; font-weight: 700; margin-bottom: 1.2rem;
+    }
+    .visual-stepper { display: flex; gap: .6rem; margin-bottom: 1.6rem; }
+    .visual-step {
+      flex: 1; text-align: center; padding: .9rem .5rem; border-radius: var(--radius-sm);
+      border: 2px solid var(--color-border); background: var(--color-surface);
+      font-size: .8rem; font-weight: 700; color: var(--color-muted);
+      transition: border-color var(--transition), background var(--transition), color var(--transition);
+    }
+    .visual-step.is-active { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-xl); }
+    .visual-step.is-done { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-accent-xl); }
+    .visual-step-icon { display: block; margin: 0 auto .35rem; }
+    #view-auditivo .result-html-area { font-size: 1.15rem; line-height: 2.1; }
+
+    /* ══════════════════════════════════════════════
+       PERFIL BAJA VISIÓN — contraste extremo, todo sobredimensionado
+    ══════════════════════════════════════════════ */
+    #view-baja-vision { font-size: 1.2rem; }
+    #view-baja-vision .view-heading { font-size: 2.1rem; }
+    #view-baja-vision .view-sub { font-size: 1.05rem; }
+    #view-baja-vision .card { border-width: 3px; padding: 2rem; }
+    #view-baja-vision .upload-zone { padding: 3rem 1.5rem; border-width: 4px; }
+    #view-baja-vision .upload-zone p { font-size: 1.05rem; }
+    #view-baja-vision textarea { font-size: 1.3rem; min-height: 160px; border-width: 3px; }
+    #view-baja-vision label { font-size: 1rem; }
+    #view-baja-vision .btn { font-size: 1.1rem; padding: 1rem 1.7rem; border-width: 3px; }
+    #view-baja-vision .btn-primary { border: none; }
+    #view-baja-vision .result-html-area { font-size: 1.4rem; line-height: 2.1; border-width: 3px; }
+
+    /* ══════════════════════════════════════════════
+       PERFIL TDAH — wizard de pasos-tarjeta
+    ══════════════════════════════════════════════ */
+    .tdah-progress-wrap { margin-bottom: 1.8rem; }
+    .tdah-progress-bar-bg { height: 8px; background: var(--color-border); border-radius: 99px; overflow: hidden; }
+    .tdah-progress-bar-fill { height: 100%; background: var(--color-primary); border-radius: 99px; width: 33%; transition: width .3s ease; }
+    .tdah-progress-label { font-size: .8rem; color: var(--color-muted); margin-top: .5rem; font-weight: 700; font-family: var(--font-ui); }
+    .tdah-step { display: none; }
+    .tdah-step.active { display: block; animation: fadeUp .2s ease; }
+    .tdah-step-actions { display: flex; gap: .7rem; margin-top: 1.6rem; justify-content: space-between; }
+    .tdah-confirm-box {
+      background: var(--color-primary-xl); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); padding: 1.2rem; margin-bottom: 1rem; font-size: .9rem; line-height: 1.8;
+    }
+
     .container { max-width: 880px; margin: 0 auto; padding: 2.2rem 1.5rem; }
     .page-title { font-family: var(--font-ui); font-size: 1.85rem; font-weight: 700; line-height: 1.2; margin-bottom: .4rem; }
     .page-sub { color: var(--color-muted); font-size: .97rem; margin-bottom: 2rem; line-height: 1.5; }
@@ -947,6 +1084,10 @@
       🎓 EduInclusiva <span>AI</span>
     </a>
     <div class="header-right">
+      <button class="btn btn-ghost btn-sm" onclick="navigateTo('lobby')" aria-label="Cambiar de perfil / interfaz">
+        <i data-lucide="layout-grid" style="width:14px;height:14px"></i>
+        <span class="distraction">Cambiar perfil</span>
+      </button>
       <button class="btn btn-ghost btn-sm" onclick="openHistoryModal()" aria-label="Ver historial de adaptaciones">
         <i data-lucide="history" style="width:14px;height:14px"></i>
         <span class="distraction">Historial</span>
@@ -965,6 +1106,419 @@
        APP PRINCIPAL
   ══════════════════════════════════════════════════════ -->
   <main id="app-main" role="main">
+
+    <!-- ══════════════════════════════════════════════════════
+         VISTA: LOBBY (selección de perfil / interfaz)
+    ══════════════════════════════════════════════════════ -->
+    <section id="view-lobby" class="view active" aria-label="Selección de perfil de accesibilidad">
+      <div class="lobby-wrap">
+        <h1 class="lobby-title">¿Con qué perfil querés trabajar hoy?</h1>
+        <p class="lobby-sub">
+          Cada perfil abre una interfaz pensada específicamente para esa necesidad — no es solo un cambio de
+          color, cambia cómo interactuás con la app. Podés cambiar de perfil cuando quieras desde el header.
+        </p>
+        <div class="lobby-grid" role="list">
+          <button type="button" class="lobby-card" role="listitem" onclick="navigateTo('ceguera')">
+            <span class="lobby-card-icon"><i data-lucide="eye-off" style="width:24px;height:24px"></i></span>
+            <span class="lobby-card-title">Ceguera / Audio-Navegación</span>
+            <span class="lobby-card-desc">Interfaz 100% por voz y teclado: narración automática, alto contraste absoluto, sin depender de la vista.</span>
+          </button>
+
+          <button type="button" class="lobby-card" role="listitem" onclick="navigateTo('auditivo')">
+            <span class="lobby-card-icon"><i data-lucide="ear" style="width:24px;height:24px"></i></span>
+            <span class="lobby-card-title">Auditivo (Sordera / Hipoacusia)</span>
+            <span class="lobby-card-desc">Apoyos visuales masivos y transcripciones de alto impacto — cero dependencia del sonido.</span>
+          </button>
+
+          <button type="button" class="lobby-card" role="listitem" onclick="navigateTo('baja-vision')">
+            <span class="lobby-card-icon"><i data-lucide="eye" style="width:24px;height:24px"></i></span>
+            <span class="lobby-card-title">Baja Visión</span>
+            <span class="lobby-card-desc">Bloques de contraste extremo, tipografía gigante y elementos táctiles sobredimensionados.</span>
+          </button>
+
+          <button type="button" class="lobby-card" role="listitem" onclick="navigateTo('tdah')">
+            <span class="lobby-card-icon"><i data-lucide="zap" style="width:24px;height:24px"></i></span>
+            <span class="lobby-card-title">TDAH / Neurodivergencia</span>
+            <span class="lobby-card-desc">Un paso a la vez, en tarjetas cortas, con barra de progreso y cero distracciones.</span>
+          </button>
+
+          <button type="button" class="lobby-card lobby-card-docente" role="listitem" onclick="navigateTo('docente')">
+            <span class="lobby-card-icon"><i data-lucide="graduation-cap" style="width:24px;height:24px"></i></span>
+            <span class="lobby-card-title">Docente / Estándar</span>
+            <span class="lobby-card-desc">La plataforma completa: perfiles combinables, historial y gestión de adaptaciones.</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════
+         VISTA: CEGUERA / AUDIO-NAVEGACIÓN
+    ══════════════════════════════════════════════════════ -->
+    <section id="view-ceguera" class="view" aria-label="Perfil Ceguera y Audio-Navegación">
+      <div class="view-topbar">
+        <button type="button" class="view-back" onclick="navigateTo('lobby')">
+          <i data-lucide="arrow-left" style="width:14px;height:14px"></i> Volver al Lobby
+        </button>
+      </div>
+      <div class="view-shell">
+        <h1 class="view-heading">🔊 Ceguera / Audio-Navegación</h1>
+        <p class="view-sub">
+          Escribí o subí el contenido y presioná "Procesar y escuchar". El resultado se lee automáticamente en
+          voz alta. Toda la pantalla es operable con Tab, Enter y Espacio.
+        </p>
+
+        <div class="card">
+          <div class="upload-zone" id="upload-zone-ceguera"
+            role="button" tabindex="0"
+            aria-label="Subir archivo PDF, TXT, DOCX, JPG, PNG o WEBP. Clic, Enter o arrastrar."
+            onclick="triggerFileInput()"
+            onkeydown="if(event.key==='Enter'||event.key===' '){triggerFileInput();event.preventDefault();}"
+            ondragover="handleDragOver(event)"
+            ondragleave="this.classList.remove('dragover')"
+            ondrop="handleDrop(event)">
+            <input type="file" id="file-input-ceguera"
+              accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp"
+              onchange="handleFileSelect(event)" aria-label="Seleccionar archivo" />
+            <div class="upload-icon">📂</div>
+            <p><strong>Enter para subir</strong> un archivo, o pegá el texto abajo</p>
+          </div>
+
+          <div class="file-preview" id="file-preview-ceguera" role="status" aria-live="polite">
+            <img id="preview-thumb-ceguera" class="image-thumb" src="" alt="" style="display:none" />
+            <i data-lucide="check-circle-2" style="width:16px;height:16px;color:var(--color-accent);flex-shrink:0"></i>
+            <span class="file-name-text" id="file-name-ceguera">archivo</span>
+          </div>
+
+          <div class="text-input-wrap">
+            <label for="text-input-ceguera">Contenido a adaptar</label>
+            <textarea id="text-input-ceguera" rows="6" placeholder="Pegá aquí el texto…" autocomplete="off"></textarea>
+          </div>
+
+          <div class="submit-row">
+            <button class="btn btn-primary btn-lg" id="process-btn-ceguera" onclick="processContent()" style="width:100%;justify-content:center">
+              <i data-lucide="volume-2" style="width:18px;height:18px"></i>
+              Procesar y escuchar
+            </button>
+          </div>
+          <div class="progress-wrap" id="progress-wrap-ceguera" role="status" aria-live="polite">
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill-ceguera"></div></div>
+            <div class="progress-label" id="progress-label-ceguera">
+              <i data-lucide="loader-2" style="width:13px;height:13px;animation:spin 1s linear infinite"></i>
+              Preparando…
+            </div>
+          </div>
+        </div>
+
+        <section class="card result-area" id="result-section-ceguera" aria-labelledby="result-title-ceguera">
+          <h3 class="card-title" id="result-title-ceguera">
+            <i data-lucide="check-circle-2" style="width:16px;height:16px;color:var(--color-accent)"></i>
+            Resultado adaptado
+          </h3>
+          <div class="result-html-area" id="result-html-ceguera" aria-live="polite"></div>
+          <div class="audio-player-wrap">
+            <button class="btn btn-primary" onclick="speakResult()" id="tts-play-btn-ceguera" aria-label="Escuchar">
+              <i data-lucide="play" style="width:14px;height:14px"></i> Escuchar
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="stopSpeech()" aria-label="Detener">
+              <i data-lucide="square" style="width:13px;height:13px"></i> Detener
+            </button>
+            <div class="tts-rate-wrap">
+              <label for="tts-rate-ceguera" style="margin:0;font-size:.8rem">Velocidad</label>
+              <input type="range" id="tts-rate-ceguera" min="0.5" max="1.8" step="0.1" value="0.9" aria-label="Velocidad de reproducción" />
+            </div>
+          </div>
+          <div class="result-actions">
+            <button class="btn btn-ghost btn-sm" onclick="copyResult()"><i data-lucide="copy" style="width:13px;height:13px"></i> Copiar</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadTxt()"><i data-lucide="download" style="width:13px;height:13px"></i> Descargar .txt</button>
+          </div>
+          <pre id="result-raw-ceguera" style="display:none"></pre>
+        </section>
+
+        <div class="kbd-hints">
+          <strong>Atajos y navegación:</strong><br>
+          <kbd>Tab</kbd> moverse entre controles · <kbd>Enter</kbd> / <kbd>Espacio</kbd> activar botón ·
+          <kbd>Esc</kbd> cerrar ventanas emergentes
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════
+         VISTA: AUDITIVO (Sordera / Hipoacusia)
+    ══════════════════════════════════════════════════════ -->
+    <section id="view-auditivo" class="view" aria-label="Perfil Auditivo">
+      <div class="view-topbar">
+        <button type="button" class="view-back" onclick="navigateTo('lobby')">
+          <i data-lucide="arrow-left" style="width:14px;height:14px"></i> Volver al Lobby
+        </button>
+      </div>
+      <div class="view-shell">
+        <h1 class="view-heading">👁️ Perfil Auditivo</h1>
+        <p class="view-sub">Todo lo que necesitás está a la vista, nada depende del sonido.</p>
+        <span class="no-audio-badge"><i data-lucide="volume-x" style="width:13px;height:13px"></i> Sin audio, 100% visual</span>
+
+        <div class="visual-stepper" role="list" aria-label="Estado del procesamiento">
+          <div class="visual-step is-active" id="auditivo-step-received" role="listitem">
+            <i data-lucide="check-circle-2" class="visual-step-icon" style="width:18px;height:18px"></i>
+            Recibido
+          </div>
+          <div class="visual-step" id="auditivo-step-processing" role="listitem">
+            <i data-lucide="loader-2" class="visual-step-icon" style="width:18px;height:18px"></i>
+            Procesando
+          </div>
+          <div class="visual-step" id="auditivo-step-done" role="listitem">
+            <i data-lucide="file-text" class="visual-step-icon" style="width:18px;height:18px"></i>
+            Listo
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="upload-zone" id="upload-zone-auditivo"
+            role="button" tabindex="0" aria-label="Subir archivo PDF, TXT, DOCX, JPG, PNG o WEBP."
+            onclick="triggerFileInput()"
+            onkeydown="if(event.key==='Enter'||event.key===' '){triggerFileInput();event.preventDefault();}"
+            ondragover="handleDragOver(event)"
+            ondragleave="this.classList.remove('dragover')"
+            ondrop="handleDrop(event)">
+            <input type="file" id="file-input-auditivo"
+              accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp"
+              onchange="handleFileSelect(event)" aria-label="Seleccionar archivo" />
+            <div class="upload-icon">📂</div>
+            <p><strong>Click para subir</strong> o arrastrá aquí</p>
+          </div>
+
+          <div class="file-preview" id="file-preview-auditivo" role="status" aria-live="polite">
+            <img id="preview-thumb-auditivo" class="image-thumb" src="" alt="" style="display:none" />
+            <i data-lucide="check-circle-2" style="width:16px;height:16px;color:var(--color-accent);flex-shrink:0"></i>
+            <span class="file-name-text" id="file-name-auditivo">archivo</span>
+          </div>
+
+          <div class="text-input-wrap">
+            <label for="text-input-auditivo">O pegá el texto directamente</label>
+            <textarea id="text-input-auditivo" rows="6" placeholder="Pegá aquí el contenido a adaptar…"></textarea>
+          </div>
+
+          <div class="submit-row">
+            <button class="btn btn-primary btn-lg" id="process-btn-auditivo" onclick="processContent()">
+              <i data-lucide="refresh-cw" style="width:16px;height:16px"></i> Generar transcripción adaptada
+            </button>
+          </div>
+          <div class="progress-wrap" id="progress-wrap-auditivo" role="status" aria-live="polite">
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill-auditivo"></div></div>
+            <div class="progress-label" id="progress-label-auditivo">
+              <i data-lucide="loader-2" style="width:13px;height:13px;animation:spin 1s linear infinite"></i> Preparando…
+            </div>
+          </div>
+        </div>
+
+        <section class="card result-area" id="result-section-auditivo" aria-labelledby="result-title-auditivo">
+          <h3 class="card-title" id="result-title-auditivo">
+            <i data-lucide="file-text" style="width:16px;height:16px;color:var(--color-accent)"></i>
+            Transcripción adaptada
+          </h3>
+          <div class="result-html-area" id="result-html-auditivo" aria-live="polite"></div>
+          <div class="result-actions">
+            <button class="btn btn-primary btn-sm" onclick="copyResult()"><i data-lucide="copy" style="width:13px;height:13px"></i> Copiar texto</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadTxt()"><i data-lucide="download" style="width:13px;height:13px"></i> Descargar .txt</button>
+            <button class="btn btn-ghost btn-sm" onclick="printResult()"><i data-lucide="file-text" style="width:13px;height:13px"></i> Imprimir / PDF</button>
+          </div>
+          <pre id="result-raw-auditivo" style="display:none"></pre>
+        </section>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════
+         VISTA: BAJA VISIÓN
+    ══════════════════════════════════════════════════════ -->
+    <section id="view-baja-vision" class="view" aria-label="Perfil Baja Visión">
+      <div class="view-topbar">
+        <button type="button" class="view-back" onclick="navigateTo('lobby')">
+          <i data-lucide="arrow-left" style="width:16px;height:16px"></i> Volver al Lobby
+        </button>
+      </div>
+      <div class="view-shell">
+        <h1 class="view-heading">🔎 Baja Visión</h1>
+        <p class="view-sub">Todo más grande, todo con más contraste.</p>
+
+        <div class="card">
+          <div class="upload-zone" id="upload-zone-baja-vision"
+            role="button" tabindex="0" aria-label="Subir archivo"
+            onclick="triggerFileInput()"
+            onkeydown="if(event.key==='Enter'||event.key===' '){triggerFileInput();event.preventDefault();}"
+            ondragover="handleDragOver(event)"
+            ondragleave="this.classList.remove('dragover')"
+            ondrop="handleDrop(event)">
+            <input type="file" id="file-input-baja-vision"
+              accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp"
+              onchange="handleFileSelect(event)" aria-label="Seleccionar archivo" />
+            <div class="upload-icon">📂</div>
+            <p><strong>Tocá para subir</strong> un archivo</p>
+          </div>
+
+          <div class="file-preview" id="file-preview-baja-vision" role="status" aria-live="polite">
+            <img id="preview-thumb-baja-vision" class="image-thumb" src="" alt="" style="display:none" />
+            <i data-lucide="check-circle-2" style="width:20px;height:20px;color:var(--color-accent);flex-shrink:0"></i>
+            <span class="file-name-text" id="file-name-baja-vision">archivo</span>
+          </div>
+
+          <div class="text-input-wrap">
+            <label for="text-input-baja-vision">O pegá el texto</label>
+            <textarea id="text-input-baja-vision" rows="6" placeholder="Pegá aquí el contenido…"></textarea>
+          </div>
+
+          <div class="submit-row">
+            <button class="btn btn-primary btn-lg" id="process-btn-baja-vision" onclick="processContent()" style="width:100%;justify-content:center">
+              <i data-lucide="refresh-cw" style="width:20px;height:20px"></i> Adaptar contenido
+            </button>
+          </div>
+          <div class="progress-wrap" id="progress-wrap-baja-vision" role="status" aria-live="polite">
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill-baja-vision"></div></div>
+            <div class="progress-label" id="progress-label-baja-vision">
+              <i data-lucide="loader-2" style="width:16px;height:16px;animation:spin 1s linear infinite"></i> Preparando…
+            </div>
+          </div>
+        </div>
+
+        <section class="card result-area" id="result-section-baja-vision" aria-labelledby="result-title-baja-vision">
+          <h3 class="card-title" id="result-title-baja-vision">
+            <i data-lucide="check-circle-2" style="width:20px;height:20px;color:var(--color-accent)"></i>
+            Resultado adaptado
+          </h3>
+          <div class="result-html-area" id="result-html-baja-vision" aria-live="polite"></div>
+          <div class="audio-player-wrap">
+            <button class="btn btn-primary" onclick="speakResult()" id="tts-play-btn-baja-vision" aria-label="Escuchar">
+              <i data-lucide="play" style="width:16px;height:16px"></i> Escuchar
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="stopSpeech()" aria-label="Detener">
+              <i data-lucide="square" style="width:14px;height:14px"></i> Detener
+            </button>
+            <div class="tts-rate-wrap">
+              <label for="tts-rate-baja-vision" style="margin:0">Velocidad</label>
+              <input type="range" id="tts-rate-baja-vision" min="0.5" max="1.8" step="0.1" value="0.95" aria-label="Velocidad de reproducción" />
+            </div>
+          </div>
+          <div class="result-actions">
+            <button class="btn btn-primary btn-sm" onclick="copyResult()"><i data-lucide="copy" style="width:16px;height:16px"></i> Copiar texto</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadTxt()"><i data-lucide="download" style="width:16px;height:16px"></i> Descargar .txt</button>
+            <button class="btn btn-ghost btn-sm" onclick="printResult()"><i data-lucide="file-text" style="width:16px;height:16px"></i> Imprimir / PDF</button>
+          </div>
+          <pre id="result-raw-baja-vision" style="display:none"></pre>
+        </section>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════
+         VISTA: TDAH / NEURODIVERGENCIA (wizard de 3 pasos)
+    ══════════════════════════════════════════════════════ -->
+    <section id="view-tdah" class="view" aria-label="Perfil TDAH y Neurodivergencia">
+      <div class="view-topbar">
+        <button type="button" class="view-back" onclick="navigateTo('lobby')">
+          <i data-lucide="arrow-left" style="width:14px;height:14px"></i> Volver al Lobby
+        </button>
+      </div>
+      <div class="view-shell">
+        <h1 class="view-heading">⚡ TDAH / Neurodivergencia</h1>
+        <p class="view-sub">Un paso a la vez. Sin distracciones.</p>
+
+        <div class="tdah-progress-wrap">
+          <div class="tdah-progress-bar-bg"><div class="tdah-progress-bar-fill" id="tdah-progress-fill"></div></div>
+          <div class="tdah-progress-label" id="tdah-progress-label">Paso 1 de 3</div>
+        </div>
+
+        <!-- Paso 1: Contenido -->
+        <div class="tdah-step active card" id="tdah-step-1">
+          <h3 class="card-title"><span class="card-step">1</span> Contenido a adaptar</h3>
+          <div class="upload-zone" id="upload-zone-tdah"
+            role="button" tabindex="0" aria-label="Subir archivo"
+            onclick="triggerFileInput()"
+            onkeydown="if(event.key==='Enter'||event.key===' '){triggerFileInput();event.preventDefault();}"
+            ondragover="handleDragOver(event)"
+            ondragleave="this.classList.remove('dragover')"
+            ondrop="handleDrop(event)">
+            <input type="file" id="file-input-tdah"
+              accept=".pdf,.txt,.docx,image/jpeg,image/png,image/webp"
+              onchange="handleFileSelect(event)" aria-label="Seleccionar archivo" />
+            <div class="upload-icon">📂</div>
+            <p><strong>Click para subir</strong> o arrastrá aquí</p>
+          </div>
+          <div class="file-preview" id="file-preview-tdah" role="status" aria-live="polite">
+            <img id="preview-thumb-tdah" class="image-thumb" src="" alt="" style="display:none" />
+            <i data-lucide="check-circle-2" style="width:16px;height:16px;color:var(--color-accent);flex-shrink:0"></i>
+            <span class="file-name-text" id="file-name-tdah">archivo</span>
+          </div>
+          <div class="text-input-wrap">
+            <label for="text-input-tdah">O pegá el texto</label>
+            <textarea id="text-input-tdah" rows="5" placeholder="Pegá aquí el contenido…"></textarea>
+          </div>
+          <div class="tdah-step-actions">
+            <span></span>
+            <button class="btn btn-primary" onclick="nextTdahStep()">
+              Siguiente <i data-lucide="arrow-right" style="width:14px;height:14px"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Paso 2: Confirmar -->
+        <div class="tdah-step card" id="tdah-step-2">
+          <h3 class="card-title"><span class="card-step">2</span> Confirmar</h3>
+          <div class="tdah-confirm-box">
+            Vamos a adaptar el contenido con el perfil <strong>TDAH</strong>: enfoque, resúmenes cortos y
+            viñetas. Presioná "Procesar" cuando estés list@.
+          </div>
+          <div class="tdah-step-actions">
+            <button class="btn btn-ghost" onclick="prevTdahStep()">
+              <i data-lucide="arrow-left" style="width:14px;height:14px"></i> Atrás
+            </button>
+            <button class="btn btn-primary" id="process-btn-tdah" onclick="submitTdahStep()">
+              <i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Procesar
+            </button>
+          </div>
+        </div>
+
+        <!-- Paso 3: Resultado -->
+        <div class="tdah-step card" id="tdah-step-3">
+          <h3 class="card-title"><span class="card-step">3</span> Resultado</h3>
+          <div class="progress-wrap" id="progress-wrap-tdah" role="status" aria-live="polite">
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill-tdah"></div></div>
+            <div class="progress-label" id="progress-label-tdah">
+              <i data-lucide="loader-2" style="width:13px;height:13px;animation:spin 1s linear infinite"></i> Preparando…
+            </div>
+          </div>
+
+          <section class="result-area" id="result-section-tdah">
+            <div class="result-html-area" id="result-html-tdah" aria-live="polite"></div>
+            <div class="audio-player-wrap">
+              <button class="btn btn-primary" onclick="speakResult()" id="tts-play-btn-tdah" aria-label="Escuchar">
+                <i data-lucide="play" style="width:14px;height:14px"></i> Escuchar
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="stopSpeech()" aria-label="Detener">
+                <i data-lucide="square" style="width:13px;height:13px"></i> Detener
+              </button>
+              <div class="tts-rate-wrap">
+                <label for="tts-rate-tdah" style="margin:0;font-size:.8rem">Velocidad</label>
+                <input type="range" id="tts-rate-tdah" min="0.5" max="1.8" step="0.1" value="0.95" aria-label="Velocidad de reproducción" />
+              </div>
+            </div>
+            <div class="result-actions">
+              <button class="btn btn-primary btn-sm" onclick="copyResult()"><i data-lucide="copy" style="width:13px;height:13px"></i> Copiar</button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadTxt()"><i data-lucide="download" style="width:13px;height:13px"></i> Descargar .txt</button>
+            </div>
+            <pre id="result-raw-tdah" style="display:none"></pre>
+          </section>
+
+          <div class="tdah-step-actions">
+            <button class="btn btn-ghost" onclick="prevTdahStep()">
+              <i data-lucide="arrow-left" style="width:14px;height:14px"></i> Atrás
+            </button>
+            <span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════
+         VISTA: DOCENTE / ESTÁNDAR (plataforma completa)
+    ══════════════════════════════════════════════════════ -->
+    <section id="view-docente" class="view">
     <div class="container" id="main-content" tabindex="-1">
 
       <h2 class="page-title">Adaptar material educativo</h2>
@@ -1271,6 +1825,8 @@
       </div>
       <p class="footer-copy">EduInclusiva AI es una herramienta de apoyo docente. No emite diagnósticos médicos, clínicos ni psicopedagógicos.</p>
     </footer>
+    </section>
+    <!-- /view-docente -->
   </main>
 
   <!-- TOAST -->
