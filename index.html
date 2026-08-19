@@ -15,13 +15,13 @@
     import { createIcons, Eye, Zap, Ear, FileText, Image, Upload, Mic, Copy,
              Download, Trash2, LogOut, CheckCircle2, AlertCircle, Loader2,
              Play, Square, RefreshCw, ChevronRight, BookOpen, Brain,
-             Palette, Accessibility, Volume2, AlignLeft, X, Shield } from
+             Palette, Accessibility, Volume2, AlignLeft, X, Shield, History } from
       'https://cdn.jsdelivr.net/npm/lucide@latest/dist/esm/lucide.js';
     window._lucide = { createIcons, icons: {
       Eye, Zap, Ear, FileText, Image, Upload, Mic, Copy, Download,
       Trash2, LogOut, CheckCircle2, AlertCircle, Loader2, Play, Square,
       RefreshCw, ChevronRight, BookOpen, Brain, Palette, Accessibility,
-      Volume2, AlignLeft, X, Shield
+      Volume2, AlignLeft, X, Shield, History
     }};
     document.addEventListener('DOMContentLoaded', () => {
       createIcons({ icons: window._lucide.icons });
@@ -627,6 +627,37 @@
       display: flex; align-items: center; justify-content: center;
       font-size: .78rem; font-weight: 700; flex-shrink: 0;
     }
+    .header-right { display: flex; align-items: center; gap: .6rem; }
+
+    /* ══════════════════════════════════════════════
+       HISTORIAL DE ADAPTACIONES
+    ══════════════════════════════════════════════ */
+    .history-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid var(--color-border);
+    }
+    .history-count { font-size: .82rem; color: var(--color-muted); font-family: var(--font-ui); }
+    .history-list { display: flex; flex-direction: column; gap: .6rem; max-height: 50vh; overflow-y: auto; }
+    .history-item {
+      display: flex; align-items: center; gap: .3rem;
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      padding: .1rem;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .history-item:hover { border-color: var(--color-primary); background: var(--color-primary-xl); }
+    .history-item-main {
+      flex: 1; min-width: 0; text-align: left;
+      display: flex; flex-direction: column; gap: .2rem;
+      padding: .75rem .9rem; border-radius: var(--radius-xs);
+      background: transparent; border: none; cursor: pointer; font-family: var(--font-body);
+    }
+    .history-item-title {
+      font-size: .88rem; font-weight: 600; font-family: var(--font-ui);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-text);
+    }
+    .history-item-meta { font-size: .76rem; color: var(--color-muted); }
+    .history-item-delete { flex-shrink: 0; margin-right: .4rem; }
+    .history-empty { text-align: center; color: var(--color-muted); font-size: .88rem; padding: 2rem 0; display: none; }
 
     /* ══════════════════════════════════════════════
        FOOTER LEGAL
@@ -885,18 +916,48 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════
+       MODAL HISTORIAL DE ADAPTACIONES
+  ══════════════════════════════════════════════════════ -->
+  <div id="modal-history" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="history-title"
+    onclick="if(event.target===this) closeHistoryModal()">
+    <div class="modal-box modal-box-lg" style="position:relative">
+      <button type="button" class="modal-close" onclick="closeHistoryModal()" aria-label="Cerrar">
+        <i data-lucide="x" style="width:16px;height:16px"></i>
+      </button>
+      <h1 class="modal-title" id="history-title">Historial de adaptaciones</h1>
+      <p class="modal-subtitle">Tus últimas adaptaciones generadas, guardadas en este navegador</p>
+
+      <div class="history-toolbar">
+        <span class="history-count" id="history-count">0 guardadas</span>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="clearHistory()" aria-label="Borrar todo el historial">
+          <i data-lucide="trash-2" style="width:13px;height:13px"></i> Borrar todo
+        </button>
+      </div>
+
+      <div class="history-list" id="history-list" role="list"></div>
+      <p class="history-empty" id="history-empty">Todavía no generaste ninguna adaptación.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
        HEADER
   ══════════════════════════════════════════════════════ -->
   <header class="app-header" role="banner">
     <a href="#main-content" class="logo" aria-label="EduInclusiva AI – inicio">
       🎓 EduInclusiva <span>AI</span>
     </a>
-    <div class="header-actions distraction">
-      <div class="user-badge" id="user-badge" aria-live="polite"></div>
-      <button class="btn btn-ghost btn-sm" onclick="doLogout()" id="logout-btn" style="display:none" aria-label="Cerrar sesión">
-        <i data-lucide="log-out" style="width:14px;height:14px"></i>
-        <span class="distraction">Cerrar sesión</span>
+    <div class="header-right">
+      <button class="btn btn-ghost btn-sm" onclick="openHistoryModal()" aria-label="Ver historial de adaptaciones">
+        <i data-lucide="history" style="width:14px;height:14px"></i>
+        <span class="distraction">Historial</span>
       </button>
+      <div class="header-actions distraction">
+        <div class="user-badge" id="user-badge" aria-live="polite"></div>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" id="logout-btn" style="display:none" aria-label="Cerrar sesión">
+          <i data-lucide="log-out" style="width:14px;height:14px"></i>
+          <span class="distraction">Cerrar sesión</span>
+        </button>
+      </div>
     </div>
   </header>
 

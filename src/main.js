@@ -11,6 +11,8 @@
 
   const LS_USER_KEY  = 'edu_user_v2';
   const CONSENT_KEY  = 'edu_consent_v1';
+  const HISTORY_KEY  = 'edu_history_v1';
+  const HISTORY_MAX  = 30;   // tope de entradas guardadas para no llenar el localStorage
   const IMAGE_TYPES  = ['image/jpeg', 'image/png', 'image/webp'];
   const POLL_INTERVAL_MS  = 2500;   // frecuencia de consulta del estado del job
   const POLL_MAX_ATTEMPTS = 48;     // 48 × 2.5s ≈ 2 min de timeout total
@@ -132,6 +134,8 @@
     if (e.key === 'Escape') {
       const legal = document.getElementById('modal-legal');
       if (legal && !legal.classList.contains('hidden')) closeLegalModal();
+      const history = document.getElementById('modal-history');
+      if (history && !history.classList.contains('hidden')) closeHistoryModal();
       return;
     }
     if (e.key !== 'Enter') return;
@@ -517,6 +521,7 @@
     }
 
     S.resultText = container.innerText || container.textContent || content;
+    saveToHistory(container.innerHTML);
 
     document.getElementById('result-raw').textContent = JSON.stringify(data, null, 2);
 
@@ -581,6 +586,134 @@
       .replace(/^(?!<[hHulp])(.+)$/gm,'<p>$1</p>')
       .replace(/<\/ul><ul>/g,'')  // fusionar listas consecutivas
       .trim();
+  }
+
+  /* ══════════════════════════════════════════════
+     HISTORIAL DE ADAPTACIONES
+  ══════════════════════════════════════════════ */
+  const genHistoryId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  const getHistory = () => {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+  };
+  const saveHistoryList = list => {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }
+    catch (e) { console.warn('[EduInclusiva] No se pudo guardar el historial (¿localStorage lleno?):', e); }
+  };
+
+  /* Llamada desde renderResult() en cada adaptación exitosa */
+  function saveToHistory(renderedHtml) {
+    const text = (S.resultText || '').trim();
+    if (!text) return;
+    const entry = {
+      id: genHistoryId(),
+      timestamp: new Date().toISOString(),
+      title: text.slice(0, 40) + (text.length > 40 ? '…' : ''),
+      profile: S.profile,
+      content: text,
+      adaptations: Array.from(S.adaptations),
+      html: renderedHtml,   // vista renderizada, para restaurar el Panel 2 con fidelidad
+    };
+    const list = [entry, ...getHistory()].slice(0, HISTORY_MAX);
+    saveHistoryList(list);
+  }
+
+  function renderHistoryList() {
+    const container = document.getElementById('history-list');
+    const emptyMsg  = document.getElementById('history-empty');
+    const countEl   = document.getElementById('history-count');
+    const list = getHistory(); // ya vienen más recientes primero
+
+    countEl.textContent = list.length + (list.length === 1 ? ' guardada' : ' guardadas');
+    container.innerHTML = '';
+
+    if (list.length === 0) {
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+
+    list.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'history-item';
+      row.setAttribute('role', 'listitem');
+
+      const main = document.createElement('button');
+      main.type = 'button';
+      main.className = 'history-item-main';
+      main.setAttribute('aria-label', 'Cargar adaptación: ' + (item.title || ''));
+      main.onclick = () => loadHistoryItem(item.id);
+
+      const title = document.createElement('span');
+      title.className = 'history-item-title';
+      title.textContent = item.title || '(sin título)';   // textContent: nunca interpreta HTML
+
+      const meta = document.createElement('span');
+      meta.className = 'history-item-meta';
+      const dateStr = new Date(item.timestamp).toLocaleString('es', { dateStyle: 'medium', timeStyle: 'short' });
+      meta.textContent = (PROFILE_NAMES[item.profile] || item.profile || '') + ' · ' + dateStr;
+
+      main.appendChild(title);
+      main.appendChild(meta);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn btn-ghost btn-sm history-item-delete';
+      delBtn.setAttribute('aria-label', 'Eliminar esta adaptación');
+      delBtn.innerHTML = '<i data-lucide="trash-2" style="width:13px;height:13px"></i>';
+      delBtn.onclick = e => { e.stopPropagation(); deleteHistoryItem(item.id); };
+
+      row.appendChild(main);
+      row.appendChild(delBtn);
+      container.appendChild(row);
+    });
+
+    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+  }
+
+  function openHistoryModal() {
+    renderHistoryList();
+    document.getElementById('modal-history')?.classList.remove('hidden');
+  }
+  function closeHistoryModal() {
+    document.getElementById('modal-history')?.classList.add('hidden');
+  }
+
+  /* Carga una adaptación previa en el Panel 2 (ver / escuchar / descargar de nuevo) */
+  function loadHistoryItem(id) {
+    const item = getHistory().find(h => h.id === id);
+    if (!item) { showToast('No se encontró esa adaptación', 'error'); return; }
+
+    const container = document.getElementById('result-html-main');
+    // re-sanitizar igual que en el primer render: aunque el HTML guardado ya
+    // salió sanitizado, es una capa extra de defensa sin costo real.
+    container.innerHTML = item.html ? sanitizeHtml(item.html) : plainToHtml(item.content || '');
+    S.resultText = container.innerText || container.textContent || item.content || '';
+
+    document.getElementById('result-raw').textContent = JSON.stringify(item, null, 2);
+    document.getElementById('result-section').classList.add('visible');
+    switchResultTab('html');
+    closeHistoryModal();
+
+    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    requestAnimationFrame(() =>
+      document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'start' })
+    );
+    showToast('Adaptación cargada desde el historial');
+  }
+
+  function deleteHistoryItem(id) {
+    saveHistoryList(getHistory().filter(h => h.id !== id));
+    renderHistoryList();
+    showToast('Adaptación eliminada del historial');
+  }
+
+  function clearHistory() {
+    if (getHistory().length === 0) return;
+    if (!window.confirm('¿Borrar todo el historial de adaptaciones? Esta acción no se puede deshacer.')) return;
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistoryList();
+    showToast('Historial borrado');
   }
 
   /* ══════════════════════════════════════════════
@@ -711,4 +844,5 @@
     printResult, toggleReadingMode,
     switchResultTab, speakResult, stopSpeech,
     openLegalModal, closeLegalModal, switchLegalTab, acceptConsent,
+    openHistoryModal, closeHistoryModal, loadHistoryItem, deleteHistoryItem, clearHistory,
   });
