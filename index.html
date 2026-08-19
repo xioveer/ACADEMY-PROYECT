@@ -6,6 +6,11 @@
   <title>EduInclusiva AI — Educación para todos</title>
   <meta name="description" content="Adapta material educativo para personas con discapacidad visual, auditiva o neurodivergencia usando inteligencia artificial." />
 
+  <!-- Google Analytics 4: el bootstrap de gtag.js vive en src/lib/analytics.js, importado
+       por src/main.js. No se inyecta acá con un <script> estático porque el Measurement ID
+       solo existe como variable de entorno de build (VITE_GA_MEASUREMENT_ID) y la carga debe
+       esperar a que el usuario acepte el banner de consentimiento (ver acceptConsent()). -->
+
   <!-- Fuentes: Atkinson Hyperlegible (accesibilidad) + Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -204,6 +209,58 @@
     }
     .logo span { font-weight: 400; color: var(--color-muted); }
     .header-actions { display: flex; align-items: center; gap: .8rem; }
+
+    /* ══════════════════════════════════════════════
+       BUSCADOR GLOBAL (header)
+    ══════════════════════════════════════════════ */
+    .header-search {
+      position: relative;
+      display: flex; align-items: center; gap: .5rem;
+      flex: 1 1 auto; max-width: 360px; margin: 0 1.2rem;
+      padding: .5rem .8rem;
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-muted);
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .header-search:focus-within {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-xl);
+    }
+    .header-search-input {
+      flex: 1; border: 0; background: transparent; outline: none;
+      font: inherit; font-size: .86rem; color: var(--color-text);
+      font-family: var(--font-ui);
+    }
+    .header-search-input::placeholder { color: var(--color-muted); }
+    .header-search-input::-webkit-search-cancel-button { cursor: pointer; }
+    .search-results {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-md);
+      max-height: 320px; overflow-y: auto;
+      z-index: 250;
+    }
+    .search-results.hidden { display: none; }
+    .search-result-item {
+      display: flex; flex-direction: column; gap: .1rem;
+      width: 100%; text-align: left; padding: .6rem .8rem;
+      background: transparent; border: 0; border-bottom: 1px solid var(--color-border);
+      cursor: pointer; font-family: var(--font-ui);
+    }
+    .search-result-item:last-child { border-bottom: 0; }
+    .search-result-item:hover, .search-result-item:focus-visible, .search-result-item.active {
+      background: var(--color-primary-xl);
+    }
+    .search-result-label { font-size: .87rem; font-weight: 600; color: var(--color-text); }
+    .search-result-sublabel { font-size: .76rem; color: var(--color-muted); }
+    .search-result-empty { padding: .8rem; font-size: .84rem; color: var(--color-muted); text-align: center; }
+    @media (max-width: 860px) {
+      .header-search { display: none; }
+    }
 
     /* ══════════════════════════════════════════════
        BOTONES
@@ -934,9 +991,9 @@
           aria-controls="panel-register" onclick="switchTab('register')">Registrarse</button>
       </div>
 
-      <div class="demo-note" role="note">
+      <div class="demo-note" id="auth-demo-note" role="note">
         <i data-lucide="alert-circle" style="width:15px;height:15px;flex-shrink:0;margin-top:1px"></i>
-        <span><strong>Demo:</strong> cualquier email + contraseña (mín. 6 caracteres) funciona.</span>
+        <span><strong>Demo:</strong> cualquier email + contraseña (mín. 6 caracteres) funciona. Configurá Supabase para autenticación real (ver README).</span>
       </div>
 
       <button type="button" class="btn btn-google" style="width:100%;justify-content:center" onclick="doGoogleAuth()" aria-label="Continuar con Google">
@@ -1035,6 +1092,8 @@
           <li>Tu aceptación de este aviso de privacidad.</li>
         </ul>
         <p>El contenido que subís para adaptar (texto, archivos o imágenes) se envía a nuestro proveedor de automatización (n8n) y a los servicios de IA que este orqueste, únicamente para generar la adaptación solicitada.</p>
+        <p>Si el proyecto tiene Supabase configurado, tu sesión, preferencias de accesibilidad, historial de adaptaciones y (opcionalmente) los archivos que subís e imagen de perfil se guardan en la base de datos y el almacenamiento de Supabase en lugar de (o además de) tu navegador, protegidos por políticas de acceso que solo te permiten ver y modificar tus propios datos.</p>
+        <p>Usamos <strong>Google Analytics 4</strong> para medir de forma agregada y anónima el uso de las distintas interfaces (qué perfiles se usan más, qué páginas se visitan), únicamente después de que aceptés el aviso de consentimiento. No es un cookie de rastreo publicitario ni se usa para perfilarte comercialmente.</p>
         <p>No vendemos datos personales ni usamos cookies de rastreo publicitario. Podés borrar tu sesión y preferencias en cualquier momento cerrando sesión o limpiando el almacenamiento local del navegador. Este tratamiento se realiza conforme a la normativa de protección de datos aplicable en tu jurisdicción (p. ej. habeas data / RGPD).</p>
       </div>
 
@@ -1083,6 +1142,16 @@
     <a href="#main-content" class="logo" aria-label="EduInclusiva AI – inicio">
       🎓 EduInclusiva <span>AI</span>
     </a>
+
+    <div class="header-search distraction" role="search">
+      <i data-lucide="search" aria-hidden="true" style="width:14px;height:14px"></i>
+      <input type="search" id="global-search" class="header-search-input"
+        placeholder="Buscar interfaces, historial, ayuda…" aria-label="Buscar en EduInclusiva AI"
+        autocomplete="off" oninput="onGlobalSearchInput(this.value)" onkeydown="onGlobalSearchKeydown(event)"
+        onfocus="onGlobalSearchInput(this.value)" />
+      <div id="global-search-results" class="search-results hidden" role="listbox" aria-label="Resultados de búsqueda"></div>
+    </div>
+
     <div class="header-right">
       <button class="btn btn-ghost btn-sm" onclick="navigateTo('lobby')" aria-label="Cambiar de perfil / interfaz">
         <i data-lucide="layout-grid" style="width:14px;height:14px"></i>
@@ -1094,6 +1163,12 @@
       </button>
       <div class="header-actions distraction">
         <div class="user-badge" id="user-badge" aria-live="polite"></div>
+        <button class="btn btn-ghost btn-sm" id="avatar-upload-btn" style="display:none"
+          onclick="triggerAvatarUpload()" aria-label="Cambiar foto de perfil (Supabase Storage)">
+          <i data-lucide="image" style="width:14px;height:14px"></i>
+        </button>
+        <input type="file" id="avatar-file-input" accept="image/jpeg,image/png,image/webp"
+          style="display:none" onchange="handleAvatarSelect(event)" />
         <button class="btn btn-ghost btn-sm" onclick="doLogout()" id="logout-btn" style="display:none" aria-label="Cerrar sesión">
           <i data-lucide="log-out" style="width:14px;height:14px"></i>
           <span class="distraction">Cerrar sesión</span>
@@ -1836,7 +1911,7 @@
   <div id="consent-banner" class="hidden" role="region" aria-label="Aviso de uso de almacenamiento local">
     <p>
       <i data-lucide="shield" style="width:14px;height:14px;vertical-align:-2px;margin-right:.3rem"></i>
-      Usamos <strong>almacenamiento local del navegador</strong> (localStorage) para guardar tu sesión y tus preferencias de accesibilidad. No usamos cookies de rastreo publicitario.
+      Usamos <strong>almacenamiento local del navegador</strong> (o Supabase, si está configurado) para guardar tu sesión y preferencias, y <strong>Google Analytics</strong> para estadísticas de uso agregadas. No usamos cookies de rastreo publicitario.
       <a href="#" onclick="openLegalModal('privacy');return false">Más info</a>.
     </p>
     <button type="button" class="btn btn-primary btn-sm" onclick="acceptConsent()">Entendido</button>

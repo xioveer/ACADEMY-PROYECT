@@ -1,3 +1,10 @@
+  import { getCurrentUser, onAuthStateChange, signInWithPassword, signUp, signInWithGoogle, signOut } from './lib/auth.js';
+  import { isSupabaseConfigured } from './lib/supabaseClient.js';
+  import * as db from './lib/db.js';
+  import { uploadOriginalFile, uploadAvatar } from './lib/storage.js';
+  import { initAnalytics, trackPageView, trackEvent } from './lib/analytics.js';
+  import { searchAll } from './lib/search.js';
+
   /* ── CONFIGURACIÓN ── */
   const WEBHOOK_URL        = import.meta.env.VITE_WEBHOOK_URL;        // submit del job (n8n)
   const STATUS_WEBHOOK_URL = import.meta.env.VITE_STATUS_WEBHOOK_URL; // consulta de estado (n8n)
@@ -9,10 +16,8 @@
     );
   }
 
-  const LS_USER_KEY  = 'edu_user_v2';
   const CONSENT_KEY  = 'edu_consent_v1';
-  const HISTORY_KEY  = 'edu_history_v1';
-  const HISTORY_MAX  = 30;   // tope de entradas guardadas para no llenar el localStorage
+  const HISTORY_MAX  = 30;   // tope de entradas mostradas/guardadas (ver también src/lib/db.js)
   const IMAGE_TYPES  = ['image/jpeg', 'image/png', 'image/webp'];
   const POLL_INTERVAL_MS  = 2500;   // frecuencia de consulta del estado del job
   const POLL_MAX_ATTEMPTS = 48;     // 48 × 2.5s ≈ 2 min de timeout total
@@ -64,21 +69,21 @@
   /* ── ESTADO GLOBAL ── */
   const S = {
     file: null, fileType: null, fileBase64: null, fileMime: null,
+    extracting: false, // true mientras se extrae texto de un PDF/DOCX en el navegador
     adaptations: new Set(),
     profile: 'tdah',
     resultText: '',   // texto plano para TTS y descarga
     pollAbort: null,  // { cancelled: bool } — permite cancelar el polling en curso
     ui: { ...DEFAULT_UI },   // ids activos: los reasigna el router en cada navegación
     tdahStep: 1,
+    currentUser: null,  // { id?, email, name, avatarUrl? } — id solo existe con sesión Supabase real
+    historyCache: [],   // último historial cargado (Supabase o localStorage), usado por el buscador
   };
 
   /* ══════════════════════════════════════════════
-     AUTH
+     AUTH — delega en src/lib/auth.js (Supabase real
+     si está configurado; localStorage demo si no)
   ══════════════════════════════════════════════ */
-  const getUsers = () => { try { return JSON.parse(localStorage.getItem('edu_users') || '{}'); } catch { return {}; } };
-  const saveUsers = u => localStorage.setItem('edu_users', JSON.stringify(u));
-  const getCurrentUser = () => { try { return JSON.parse(localStorage.getItem(LS_USER_KEY)); } catch { return null; } };
-
   function switchTab(t) {
     ['login','register'].forEach(id => {
       const active = id === t;
@@ -90,64 +95,60 @@
     document.getElementById('reg-error').textContent = '';
   }
 
-  function doLogin() {
+  async function doLogin() {
     const email = document.getElementById('login-email').value.trim().toLowerCase();
     const pass  = document.getElementById('login-pass').value;
     const err   = document.getElementById('login-error');
     err.textContent = '';
-    if (!email || !pass) { err.textContent = 'Completá todos los campos.'; return; }
-    if (pass.length < 6) { err.textContent = 'Contraseña mínimo 6 caracteres.'; return; }
-    const users = getUsers();
-    if (users[email] && users[email].pass !== btoa(pass)) { err.textContent = 'Contraseña incorrecta.'; return; }
-    if (!users[email]) {
-      users[email] = { email, pass: btoa(pass), name: email.split('@')[0] };
-      saveUsers(users);
-    }
-    localStorage.setItem(LS_USER_KEY, JSON.stringify({ email, name: users[email].name }));
-    showApp(users[email]);
-    showToast('¡Bienvenid@, ' + users[email].name + '! 🎉');
+    const { user, error } = await signInWithPassword(email, pass);
+    if (error) { err.textContent = error; return; }
+    await onSignedIn(user, 'password');
   }
 
-  function doRegister() {
+  async function doRegister() {
     const name  = document.getElementById('reg-name').value.trim();
     const email = document.getElementById('reg-email').value.trim().toLowerCase();
     const pass  = document.getElementById('reg-pass').value;
     const err   = document.getElementById('reg-error');
     err.textContent = '';
-    if (!name || !email || !pass) { err.textContent = 'Completá todos los campos.'; return; }
-    if (pass.length < 6)  { err.textContent = 'Contraseña mínimo 6 caracteres.'; return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Email inválido.'; return; }
-    const users = getUsers();
-    if (users[email]) { err.textContent = 'Ese email ya está registrado.'; return; }
-    users[email] = { email, pass: btoa(pass), name };
-    saveUsers(users);
-    localStorage.setItem(LS_USER_KEY, JSON.stringify({ email, name }));
-    showApp({ name, email });
-    showToast('Cuenta creada. ¡Bienvenid@, ' + name + '! 🎉');
+    const { user, error, needsEmailConfirmation } = await signUp(name, email, pass);
+    if (error) { err.textContent = error; return; }
+    if (needsEmailConfirmation) {
+      showToast('Cuenta creada. Revisá tu correo para confirmarla ✅');
+      switchTab('login');
+      return;
+    }
+    trackEvent('sign_up', { method: 'password' });
+    await onSignedIn(user, 'password');
   }
 
-  function doGoogleAuth() {
+  async function doGoogleAuth() {
     showToast('Conectando con Google…');
-    setTimeout(() => {
-      const email = 'demo.google@eduinclusiva.ai';
-      const name  = 'Cuenta de Google (demo)';
-      const users = getUsers();
-      if (!users[email]) {
-        users[email] = { email, name, pass: btoa('google-oauth-demo') };
-        saveUsers(users);
-      }
-      localStorage.setItem(LS_USER_KEY, JSON.stringify({ email, name: users[email].name }));
-      showApp(users[email]);
-      showToast('¡Bienvenid@! Sesión iniciada con Google (demo) 🎉');
-    }, 700);
+    const { user, error } = await signInWithGoogle();
+    if (error) { showToast('No se pudo conectar con Google: ' + error, 'error'); return; }
+    if (!user) return; // Supabase real: el navegador ya está redirigiendo a Google
+    await onSignedIn(user, 'google');
   }
 
-  function doLogout() {
-    localStorage.removeItem(LS_USER_KEY);
+  async function onSignedIn(user, method) {
+    trackEvent('login', { method });
+    await showApp(user);
+    showToast('¡Bienvenid@, ' + (user.name || user.email) + '! 🎉');
+  }
+
+  async function doLogout() {
+    await signOut();
+    resetToLoggedOutUi();
+  }
+
+  function resetToLoggedOutUi() {
+    S.currentUser = null;
+    S.historyCache = [];
     document.getElementById('app-main').classList.remove('visible');
     document.getElementById('auth-modal').classList.remove('hidden');
     document.getElementById('logout-btn').style.display = 'none';
     document.getElementById('user-badge').innerHTML = '';
+    document.getElementById('avatar-upload-btn').style.display = 'none';
     document.getElementById('login-email').value = '';
     document.getElementById('login-pass').value = '';
     clearAll();
@@ -155,17 +156,58 @@
     window.history.replaceState(null, '', location.pathname + location.search); // limpia el hash de ruta
   }
 
-  function showApp(user) {
+  async function showApp(user) {
+    S.currentUser = user;
     document.getElementById('auth-modal').classList.add('hidden');
     document.getElementById('app-main').classList.add('visible');
     document.getElementById('logout-btn').style.display = 'inline-flex';
-    const rawName = user.name || '';
-    const initials = escHtml(rawName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase());
-    document.getElementById('user-badge').innerHTML =
-      `<div class="user-avatar" aria-hidden="true">${initials}</div>
-       <span>${escHtml(rawName)}</span>`;
+    const demoNote = document.getElementById('auth-demo-note');
+    if (demoNote) demoNote.style.display = isSupabaseConfigured ? 'none' : 'flex';
+
+    renderUserBadge(user);
+    document.getElementById('avatar-upload-btn').style.display = (isSupabaseConfigured && user.id) ? 'inline-flex' : 'none';
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+
+    const [prefs, history] = await Promise.all([
+      db.getPreferences(user.id),
+      db.getHistory(user.id),
+    ]);
+    if (prefs?.profile) S.profile = prefs.profile;
+    if (prefs?.adaptations?.length) S.adaptations = new Set(prefs.adaptations);
+    S.historyCache = history;
+
     navigateTo(currentRoute() || 'lobby');
+  }
+
+  function renderUserBadge(user) {
+    const rawName = user.name || user.email || '';
+    const initials = escHtml(rawName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase());
+    const badge = document.getElementById('user-badge');
+    badge.innerHTML = user.avatarUrl
+      ? `<img src="${escHtml(user.avatarUrl)}" alt="" class="user-avatar" style="object-fit:cover" />
+         <span>${escHtml(rawName)}</span>`
+      : `<div class="user-avatar" aria-hidden="true">${initials}</div>
+         <span>${escHtml(rawName)}</span>`;
+  }
+
+  /* ══════════════════════════════════════════════
+     AVATAR (Supabase Storage)
+  ══════════════════════════════════════════════ */
+  function triggerAvatarUpload() {
+    document.getElementById('avatar-file-input').click();
+  }
+
+  async function handleAvatarSelect(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file || !S.currentUser?.id) return;
+    showToast('Subiendo foto de perfil…');
+    const url = await uploadAvatar(file, S.currentUser.id);
+    if (!url) { showToast('No se pudo subir la imagen', 'error'); return; }
+    S.currentUser = { ...S.currentUser, avatarUrl: url };
+    renderUserBadge(S.currentUser);
+    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    showToast('Foto de perfil actualizada ✅');
   }
 
   /* ══════════════════════════════════════════════
@@ -223,6 +265,7 @@
 
     window.scrollTo(0, 0);
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    trackPageView(route);
   }
 
   window.addEventListener('hashchange', renderRoute);
@@ -256,9 +299,19 @@
     processContent();
   }
 
-  window.addEventListener('DOMContentLoaded', () => {
-    const user = getCurrentUser();
-    if (user) showApp(user);
+  window.addEventListener('DOMContentLoaded', async () => {
+    if (localStorage.getItem(CONSENT_KEY)) initAnalytics();
+
+    // En modo Supabase, mantiene la sesión sincronizada (login/logout/expiración
+    // de token, incluida la vuelta del redirect de Google OAuth). No-op en modo demo.
+    onAuthStateChange(user => {
+      if (user) showApp(user);
+      else if (S.currentUser) resetToLoggedOutUi();
+    });
+
+    const user = await getCurrentUser();
+    if (user) await showApp(user);
+
     if (!localStorage.getItem(CONSENT_KEY)) {
       document.getElementById('consent-banner')?.classList.remove('hidden');
     }
@@ -270,6 +323,7 @@
       if (legal && !legal.classList.contains('hidden')) closeLegalModal();
       const history = document.getElementById('modal-history');
       if (history && !history.classList.contains('hidden')) closeHistoryModal();
+      closeGlobalSearch();
       return;
     }
     if (e.key !== 'Enter') return;
@@ -279,6 +333,10 @@
       if (panel?.id === 'panel-login') doLogin();
       if (panel?.id === 'panel-register') doRegister();
     }
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.header-search')) closeGlobalSearch();
   });
 
   /* ══════════════════════════════════════════════
@@ -307,6 +365,61 @@
   function acceptConsent() {
     localStorage.setItem(CONSENT_KEY, '1');
     document.getElementById('consent-banner')?.classList.add('hidden');
+    initAnalytics();
+  }
+
+  /* ══════════════════════════════════════════════
+     BUSCADOR GLOBAL (header) — src/lib/search.js
+  ══════════════════════════════════════════════ */
+  let _searchDebounceTimer = null;
+  function onGlobalSearchInput(query) {
+    clearTimeout(_searchDebounceTimer);
+    _searchDebounceTimer = setTimeout(() => renderSearchResults(query), 120);
+  }
+
+  function onGlobalSearchKeydown(e) {
+    if (e.key === 'Escape') { closeGlobalSearch(); e.target.blur(); }
+  }
+
+  function renderSearchResults(query) {
+    const box = document.getElementById('global-search-results');
+    if (!box) return;
+    const q = (query || '').trim();
+    if (!q) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+
+    const results = searchAll(q, S.historyCache);
+    if (results.length === 0) {
+      box.innerHTML = `<div class="search-result-empty">Sin resultados para "${escHtml(q)}"</div>`;
+      box.classList.remove('hidden');
+      return;
+    }
+
+    box.innerHTML = results.map((r, i) => `
+      <button type="button" class="search-result-item" data-idx="${i}" role="option">
+        <span class="search-result-label">${escHtml(r.label)}</span>
+        <span class="search-result-sublabel">${escHtml(r.sublabel || '')}</span>
+      </button>`).join('');
+    box.classList.remove('hidden');
+    box.querySelectorAll('.search-result-item').forEach((btn, i) => {
+      btn.onclick = () => executeSearchResult(results[i]);
+    });
+  }
+
+  function executeSearchResult(result) {
+    closeGlobalSearch();
+    if (result.type === 'view') { navigateTo(result.route); return; }
+    if (result.type === 'action') {
+      if (result.action === 'lobby') navigateTo('lobby');
+      if (result.action === 'history') openHistoryModal();
+      return;
+    }
+    if (result.type === 'legal') { openLegalModal(result.tab); return; }
+    if (result.type === 'history') { loadHistoryItem(result.historyId); return; }
+  }
+
+  function closeGlobalSearch() {
+    const box = document.getElementById('global-search-results');
+    if (box) { box.classList.add('hidden'); box.innerHTML = ''; }
   }
 
   /* ══════════════════════════════════════════════
@@ -358,10 +471,11 @@
     });
   }
 
-  /* Handler del onchange en las tarjetas de perfil: aplica + notifica */
+  /* Handler del onchange en las tarjetas de perfil: aplica + notifica + persiste preferencia */
   function selectProfile(input) {
     applyProfile(input.value);
     showToast('Perfil ' + (PROFILE_NAMES[input.value] || input.value) + ' activado');
+    db.savePreferences(S.currentUser?.id, S.profile, Array.from(S.adaptations));
   }
 
   /* ══════════════════════════════════════════════
@@ -405,11 +519,7 @@
     } else {
       thumb.style.display = 'none';
       thumb.src = '';
-      if (file.type === 'text/plain') {
-        const r = new FileReader();
-        r.onload = ev => { document.getElementById(S.ui.textInputId).value = ev.target.result; };
-        r.readAsText(file);
-      }
+      extractTextFromFile(file); // PDF / DOCX / TXT → vuelca el texto extraído en el textarea
     }
   }
 
@@ -428,6 +538,135 @@
   }
 
   /* ══════════════════════════════════════════════
+     EXTRACCIÓN DE TEXTO EN EL NAVEGADOR — PDF / DOCX / TXT
+     (soluciona que el payload viaje vacío hacia n8n; todo se
+     procesa localmente, el archivo original nunca se sube al
+     webhook — si Supabase Storage está configurado, se sube por
+     separado y en paralelo, ver processContent())
+  ══════════════════════════════════════════════ */
+  const MAX_EXTRACT_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+
+  /* Carga pdfjs-dist / mammoth de forma diferida (dynamic import) para no
+     inflar el bundle inicial con librerías que la mayoría de las visitas
+     nunca va a usar. Se cachean en una promesa para no reimportar dos veces. */
+  let _pdfjsPromise = null;
+  function loadPdfjs() {
+    if (!_pdfjsPromise) {
+      _pdfjsPromise = Promise.all([
+        import('pdfjs-dist'),
+        import('pdfjs-dist/build/pdf.worker.mjs?url'),
+      ]).then(([pdfjsLib, workerUrl]) => {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl.default;
+        return pdfjsLib;
+      });
+    }
+    return _pdfjsPromise;
+  }
+
+  let _mammothPromise = null;
+  function loadMammoth() {
+    if (!_mammothPromise) _mammothPromise = import('mammoth').then(m => m.default ?? m);
+    return _mammothPromise;
+  }
+
+  async function extractPdfText(file) {
+    const pdfjsLib = await loadPdfjs();
+    const buffer = await file.arrayBuffer();
+    let pdf;
+    try {
+      pdf = await pdfjsLib.getDocument({
+        data: buffer,
+        cMapUrl: '/pdfjs/cmaps/',
+        cMapPacked: true,
+        standardFontDataUrl: '/pdfjs/standard_fonts/',
+      }).promise;
+    } catch {
+      throw new Error('El PDF está dañado, protegido con contraseña o no es un PDF válido.');
+    }
+
+    const parts = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      parts.push(content.items.map(it => it.str).join(' '));
+    }
+    return parts.join('\n\n').trim();
+  }
+
+  async function extractDocxText(file) {
+    const mammoth = await loadMammoth();
+    const arrayBuffer = await file.arrayBuffer();
+    let result;
+    try {
+      result = await mammoth.extractRawText({ arrayBuffer });
+    } catch {
+      throw new Error('El archivo .docx está dañado o no es un documento de Word válido.');
+    }
+    return result.value.trim();
+  }
+
+  /* Feedback visual reutilizando el nombre de archivo ya visible (sin
+     necesidad de markup extra por vista) */
+  function setExtractingUi(on) {
+    const nameEl = document.getElementById(S.ui.fileNameId);
+    if (!nameEl) return;
+    if (on) {
+      nameEl.dataset.originalText = nameEl.textContent;
+      nameEl.innerHTML = '<i data-lucide="loader-2" style="width:13px;height:13px;animation:spin 1s linear infinite;vertical-align:-2px"></i> Extrayendo texto…';
+      if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    } else if (nameEl.dataset.originalText) {
+      nameEl.textContent = nameEl.dataset.originalText;
+      delete nameEl.dataset.originalText;
+    }
+  }
+
+  async function extractTextFromFile(file) {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const textInput = document.getElementById(S.ui.textInputId);
+
+    if (file.size > MAX_EXTRACT_FILE_SIZE) {
+      showToast(`"${file.name}" supera el máximo permitido (${fmtBytes(MAX_EXTRACT_FILE_SIZE)})`, 'error');
+      clearFile();
+      return;
+    }
+    if (ext === 'doc') {
+      showToast('El formato .doc (Word 97-2003) no es compatible. Convertilo a .docx o .txt.', 'error');
+      clearFile();
+      return;
+    }
+
+    S.extracting = true;
+    setExtractingUi(true);
+
+    try {
+      let text = '';
+      if (ext === 'pdf' || file.type === 'application/pdf') {
+        text = await extractPdfText(file);
+      } else if (ext === 'docx' || file.type.includes('wordprocessingml')) {
+        text = await extractDocxText(file);
+      } else if (ext === 'txt' || file.type === 'text/plain' || file.type === '') {
+        text = (await file.text()).trim();
+      } else {
+        throw new Error('Formato no soportado para extracción de texto. Usá PDF, DOCX o TXT.');
+      }
+
+      if (!text) {
+        throw new Error('No se pudo extraer texto de este archivo (¿está vacío o es una imagen escaneada sin texto?).');
+      }
+
+      textInput.value = text;
+      showToast('Texto extraído de "' + file.name + '" ✅');
+    } catch (err) {
+      console.error('[EduInclusiva] Error extrayendo texto del archivo:', err);
+      showToast('No se pudo leer "' + file.name + '": ' + err.message, 'error');
+      clearFile();
+    } finally {
+      S.extracting = false;
+      setExtractingUi(false);
+    }
+  }
+
+  /* ══════════════════════════════════════════════
      ADAPTACIONES
   ══════════════════════════════════════════════ */
   function toggleAdapt(chk, id) {
@@ -439,6 +678,7 @@
      PROCESAR → WEBHOOK
   ══════════════════════════════════════════════ */
   async function processContent() {
+    if (S.extracting) { showToast('Esperá, todavía se está extrayendo el texto del archivo…', 'warn'); return; }
     const txt = document.getElementById(S.ui.textInputId).value.trim();
     if (!S.file && !txt) { showToast('Subí un archivo o pegá texto primero', 'warn'); return; }
     if (S.adaptations.size === 0) { showToast('Elegí al menos una adaptación', 'warn'); return; }
@@ -446,7 +686,14 @@
 
     setProcessing(true);
 
-    const user = getCurrentUser() || {};
+    const user = S.currentUser || {};
+
+    /* Sube el archivo original a Supabase Storage en paralelo, sin bloquear
+       el flujo principal — nunca forma parte del payload de n8n. No-op si
+       Storage no está configurado o el usuario está en modo demo. */
+    const uploadPromise = (S.file && S.currentUser?.id)
+      ? uploadOriginalFile(S.file, S.currentUser.id)
+      : Promise.resolve(null);
 
     /* Payload hacia n8n. Claves principales: content, profile, adaptations,
        fileBase64, userEmail. Se agregan claves auxiliares (contentType,
@@ -520,13 +767,13 @@
         }
         if (abortToken.cancelled || finalData === null) return;
         setProgress(98, '¡Listo!');
-        renderResult(finalData);
+        renderResult(finalData, uploadPromise);
         return;
       }
 
       // Modo síncrono: el webhook ya devolvió el resultado final directamente
       setProgress(98, '¡Listo!');
-      renderResult(data);
+      renderResult(data, uploadPromise);
 
     } catch (err) {
       if (abortToken.cancelled) return;
@@ -633,7 +880,7 @@
   /* ══════════════════════════════════════════════
      RENDER RESULTADO — HTML sanitizado
   ══════════════════════════════════════════════ */
-  function renderResult(data) {
+  function renderResult(data, uploadPromise) {
     const raw =
       data?.adapted_text ?? data?.result ?? data?.output ?? data?.html ??
       data?.text ?? data?.content ??
@@ -655,7 +902,8 @@
     }
 
     S.resultText = container.innerText || container.textContent || content;
-    saveToHistory(container.innerHTML);
+    saveToHistory(container.innerHTML, uploadPromise);
+    db.savePreferences(S.currentUser?.id, S.profile, Array.from(S.adaptations));
 
     document.getElementById(S.ui.resultRawId).textContent = JSON.stringify(data, null, 2);
 
@@ -664,6 +912,7 @@
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
     requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     showToast('Contenido adaptado ✅');
+    trackEvent('adapt_content', { profile: S.profile, adaptations: Array.from(S.adaptations).join(',') });
     if (S.ui.autoSpeak) speak(S.resultText);
 
     document.getElementById('auditivo-step-processing')?.classList.remove('is-active');
@@ -728,40 +977,34 @@
   }
 
   /* ══════════════════════════════════════════════
-     HISTORIAL DE ADAPTACIONES
+     HISTORIAL DE ADAPTACIONES — delega en src/lib/db.js
+     (Supabase real si hay sesión; localStorage si no)
   ══════════════════════════════════════════════ */
-  const genHistoryId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-  const getHistory = () => {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
-  };
-  const saveHistoryList = list => {
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }
-    catch (e) { console.warn('[EduInclusiva] No se pudo guardar el historial (¿localStorage lleno?):', e); }
-  };
-
-  /* Llamada desde renderResult() en cada adaptación exitosa */
-  function saveToHistory(renderedHtml) {
+  /* Llamada desde renderResult() en cada adaptación exitosa. No bloquea el
+     render: espera la subida a Storage (si corresponde) antes de guardar
+     el registro, pero eso ocurre después de que la UI ya se actualizó. */
+  async function saveToHistory(renderedHtml, uploadPromise) {
     const text = (S.resultText || '').trim();
     if (!text) return;
+
+    const fileUrl = uploadPromise ? await uploadPromise.catch(() => null) : null;
     const entry = {
-      id: genHistoryId(),
-      timestamp: new Date().toISOString(),
       title: text.slice(0, 40) + (text.length > 40 ? '…' : ''),
       profile: S.profile,
       content: text,
       adaptations: Array.from(S.adaptations),
-      html: renderedHtml,   // vista renderizada, para restaurar el Panel 2 con fidelidad
+      html: renderedHtml,
+      fileUrl,
     };
-    const list = [entry, ...getHistory()].slice(0, HISTORY_MAX);
-    saveHistoryList(list);
+    const saved = await db.saveToHistory(S.currentUser?.id, entry);
+    S.historyCache = [saved, ...S.historyCache].slice(0, HISTORY_MAX);
   }
 
-  function renderHistoryList() {
+  function renderHistoryListUi(list) {
     const container = document.getElementById('history-list');
     const emptyMsg  = document.getElementById('history-empty');
     const countEl   = document.getElementById('history-count');
-    const list = getHistory(); // ya vienen más recientes primero
 
     countEl.textContent = list.length + (list.length === 1 ? ' guardada' : ' guardadas');
     container.innerHTML = '';
@@ -810,8 +1053,9 @@
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
   }
 
-  function openHistoryModal() {
-    renderHistoryList();
+  async function openHistoryModal() {
+    S.historyCache = await db.getHistory(S.currentUser?.id);
+    renderHistoryListUi(S.historyCache);
     document.getElementById('modal-history')?.classList.remove('hidden');
   }
   function closeHistoryModal() {
@@ -820,7 +1064,7 @@
 
   /* Carga una adaptación previa en el Panel 2 (ver / escuchar / descargar de nuevo) */
   function loadHistoryItem(id) {
-    const item = getHistory().find(h => h.id === id);
+    const item = S.historyCache.find(h => h.id === id);
     if (!item) { showToast('No se encontró esa adaptación', 'error'); return; }
 
     const container = document.getElementById(S.ui.resultHtmlId);
@@ -841,17 +1085,19 @@
     if (S.ui.autoSpeak) speak(S.resultText);
   }
 
-  function deleteHistoryItem(id) {
-    saveHistoryList(getHistory().filter(h => h.id !== id));
-    renderHistoryList();
+  async function deleteHistoryItem(id) {
+    await db.deleteHistoryItem(S.currentUser?.id, id);
+    S.historyCache = S.historyCache.filter(h => h.id !== id);
+    renderHistoryListUi(S.historyCache);
     showToast('Adaptación eliminada del historial');
   }
 
-  function clearHistory() {
-    if (getHistory().length === 0) return;
+  async function clearHistory() {
+    if (S.historyCache.length === 0) return;
     if (!window.confirm('¿Borrar todo el historial de adaptaciones? Esta acción no se puede deshacer.')) return;
-    localStorage.removeItem(HISTORY_KEY);
-    renderHistoryList();
+    await db.clearHistory(S.currentUser?.id);
+    S.historyCache = [];
+    renderHistoryListUi(S.historyCache);
     showToast('Historial borrado');
   }
 
@@ -1000,4 +1246,5 @@
     openLegalModal, closeLegalModal, switchLegalTab, acceptConsent,
     openHistoryModal, closeHistoryModal, loadHistoryItem, deleteHistoryItem, clearHistory,
     navigateTo, nextTdahStep, prevTdahStep, submitTdahStep,
+    onGlobalSearchInput, onGlobalSearchKeydown, triggerAvatarUpload, handleAvatarSelect,
   });
