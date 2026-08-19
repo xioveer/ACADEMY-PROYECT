@@ -20,7 +20,7 @@
   const S = {
     file: null, fileType: null, fileBase64: null, fileMime: null,
     adaptations: new Set(),
-    profile: 'default',
+    profile: 'tdah',
     resultText: '',   // texto plano para TTS y descarga
     pollAbort: null,  // { cancelled: bool } — permite cancelar el polling en curso
   };
@@ -79,6 +79,22 @@
     showToast('Cuenta creada. ¡Bienvenid@, ' + name + '! 🎉');
   }
 
+  function doGoogleAuth() {
+    showToast('Conectando con Google…');
+    setTimeout(() => {
+      const email = 'demo.google@eduinclusiva.ai';
+      const name  = 'Cuenta de Google (demo)';
+      const users = getUsers();
+      if (!users[email]) {
+        users[email] = { email, name, pass: btoa('google-oauth-demo') };
+        saveUsers(users);
+      }
+      localStorage.setItem(LS_USER_KEY, JSON.stringify({ email, name: users[email].name }));
+      showApp(users[email]);
+      showToast('¡Bienvenid@! Sesión iniciada con Google (demo) 🎉');
+    }, 700);
+  }
+
   function doLogout() {
     localStorage.removeItem(LS_USER_KEY);
     document.getElementById('app-main').classList.remove('visible');
@@ -104,6 +120,7 @@
   window.addEventListener('DOMContentLoaded', () => {
     const user = getCurrentUser();
     if (user) showApp(user);
+    applyProfile(S.profile);
   });
 
   document.addEventListener('keydown', e => {
@@ -117,22 +134,33 @@
   });
 
   /* ══════════════════════════════════════════════
-     PERFIL ADAPTATIVO
+     PERFIL DE ADAPTACIÓN (Paso 1)
   ══════════════════════════════════════════════ */
   const PROFILE_PRIORITIES = {
-    visual:   ['opt-baja-vision', 'opt-daltonismo'],
-    tdah:     ['opt-tdah', 'opt-cognitiva'],
-    auditiva: ['opt-auditiva'],
+    tdah:      ['opt-tdah'],
+    dislexia:  ['opt-dislexia'],
+    visual:    ['opt-baja-vision', 'opt-ceguera'],
+    cognitiva: ['opt-cognitiva'],
   };
 
-  function setProfile(profile, btn) {
-    document.querySelectorAll('.chip').forEach(c => {
-      c.classList.remove('active'); c.setAttribute('aria-pressed', 'false');
-    });
-    btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true');
-    document.body.className = document.body.className.replace(/\bprofile-\S+/g, '').trim();
+  const PROFILE_NAMES = {
+    tdah: 'TDAH',
+    dislexia: 'Dislexia',
+    visual: 'Discapacidad visual',
+    cognitiva: 'Discapacidad cognitiva',
+  };
+
+  /* Aplica el perfil (clase en <body>, tarjeta activa, checkboxes prioritarios) sin notificar */
+  function applyProfile(profile) {
     S.profile = profile;
-    if (profile !== 'default') document.body.classList.add('profile-' + profile);
+
+    document.querySelectorAll('.profile-card').forEach(card => {
+      const input = card.querySelector('input[type="radio"]');
+      card.classList.toggle('active', input?.value === profile);
+    });
+
+    document.body.className = document.body.className.replace(/\bprofile-\S+/g, '').trim();
+    document.body.classList.add('profile-' + profile);
 
     document.querySelectorAll('.section-priority').forEach(el => {
       el.classList.remove('section-priority');
@@ -152,8 +180,12 @@
       if (chk && !chk.checked) { chk.checked = true; S.adaptations.add(chk.value); }
       el.classList.add('checked');
     });
+  }
 
-    showToast('Perfil ' + btn.textContent.trim() + ' activado');
+  /* Handler del onchange en las tarjetas de perfil: aplica + notifica */
+  function selectProfile(input) {
+    applyProfile(input.value);
+    showToast('Perfil ' + (PROFILE_NAMES[input.value] || input.value) + ' activado');
   }
 
   /* ══════════════════════════════════════════════
@@ -624,7 +656,7 @@
      accesibles en window por defecto)
   ══════════════════════════════════════════════ */
   Object.assign(window, {
-    switchTab, doLogin, doRegister, doLogout, setProfile,
+    switchTab, doLogin, doRegister, doLogout, doGoogleAuth, selectProfile,
     triggerFileInput, handleFileSelect, handleDragOver, handleDrop, clearFile,
     toggleAdapt, processContent, clearAll, copyResult, downloadTxt,
     switchResultTab, speakResult, stopSpeech,

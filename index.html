@@ -104,16 +104,36 @@
       display: inline-block;
     }
 
-    /* ── PERFIL AUDITIVA ── */
-    body.profile-auditiva {
-      --color-primary:   #7C3AED;
-      --color-primary-d: #6D28D9;
-      --color-primary-xl:#F5F3FF;
-      --color-accent:    #0891B2;
+    /* ── PERFIL DISLEXIA ── */
+    body.profile-dislexia {
+      --color-primary:    #B45309;
+      --color-primary-d:  #92400E;
+      --color-primary-xl: #FFFBEB;
+      letter-spacing: .035em;
+      word-spacing: .12em;
     }
-    body.profile-auditiva .audio-section { display: none !important; }
-    body.profile-auditiva .result-html-area table,
-    body.profile-auditiva .result-html-area figure { display: block; }
+    body.profile-dislexia .result-html-area {
+      font-size: 1.08rem; line-height: 2;
+      letter-spacing: .03em; word-spacing: .12em;
+    }
+    body.profile-dislexia .result-html-area p { margin-bottom: 1.1em; }
+
+    /* ── PERFIL COGNITIVA (lectura fácil) ── */
+    body.profile-cognitiva {
+      --color-primary:    #0D9488;
+      --color-primary-d:  #0F766E;
+      --color-primary-xl: #F0FDFA;
+    }
+    body.profile-cognitiva .distraction { display: none !important; }
+    body.profile-cognitiva .result-html-area { font-size: 1.15rem; line-height: 2; }
+    body.profile-cognitiva .result-html-area h1,
+    body.profile-cognitiva .result-html-area h2,
+    body.profile-cognitiva .result-html-area h3 {
+      background: var(--color-primary-xl);
+      border-radius: var(--radius-xs);
+      padding: .3rem .8rem;
+      display: inline-block;
+    }
 
     /* ══════════════════════════════════════════════
        RESET + BASE
@@ -245,6 +265,20 @@
     }
     .error-msg { color: var(--color-danger); font-size: .84rem; margin-top: .4rem; font-weight: 600; min-height: 1.2em; }
 
+    /* Botón "Continuar con Google" + separador */
+    .btn-google {
+      background: var(--color-surface); color: var(--color-text);
+      border: 2px solid var(--color-border);
+    }
+    .btn-google:hover { border-color: #4285F4; background: #F8FAFF; }
+    .auth-divider {
+      display: flex; align-items: center; gap: .8rem;
+      margin: 1.2rem 0; color: var(--color-muted); font-size: .78rem;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--color-border);
+    }
+
     /* ══════════════════════════════════════════════
        APP MAIN
     ══════════════════════════════════════════════ */
@@ -255,60 +289,58 @@
     .page-sub { color: var(--color-muted); font-size: .97rem; margin-bottom: 2rem; line-height: 1.5; }
 
     /* ══════════════════════════════════════════════
-       PERFIL CHIPS — hover fluido con ripple
+       SELECTOR DE PERFIL DE ADAPTACIÓN (Panel 1)
     ══════════════════════════════════════════════ */
-    .profile-bar {
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius);
-      padding: 1rem 1.4rem;
-      margin-bottom: 1.8rem;
-      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-      box-shadow: var(--shadow);
-      transition: border-color var(--transition-slow);
+    .profile-select-wrap { margin-bottom: 1.6rem; }
+    .profile-select-wrap > label {
+      display: block; margin-bottom: .6rem; font-size: .85rem; color: var(--color-muted);
     }
-    .profile-bar > label { margin: 0; white-space: nowrap; font-size: .85rem; color: var(--color-muted); }
-    .profile-chips { display: flex; gap: .5rem; flex-wrap: wrap; }
-
-    .chip {
-      position: relative; overflow: hidden;
-      padding: .45rem 1.05rem; border-radius: 99px;
-      font-size: .84rem; font-weight: 600; font-family: var(--font-ui);
+    .profile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: .75rem;
+    }
+    .profile-card {
+      position: relative;
+      display: flex; align-items: flex-start; gap: .7rem;
       border: 2px solid var(--color-border);
-      color: var(--color-muted); background: transparent;
+      border-radius: var(--radius-sm);
+      padding: 1rem;
       cursor: pointer;
       transition:
         border-color var(--transition),
-        color var(--transition),
         background var(--transition),
         box-shadow var(--transition),
-        transform .15s cubic-bezier(.34,1.56,.64,1);   /* spring bounce */
+        transform .15s cubic-bezier(.34,1.56,.64,1);
+      -webkit-tap-highlight-color: transparent;
     }
-    .chip::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: var(--color-primary);
-      opacity: 0;
-      border-radius: inherit;
-      transform: scale(.4);
-      transition: opacity var(--transition), transform var(--transition);
+    .profile-card input[type="radio"] {
+      position: absolute; opacity: 0; width: 1px; height: 1px; overflow: hidden;
     }
-    .chip:hover {
+    .profile-card:hover {
       border-color: var(--color-primary);
-      color: var(--color-primary);
-      box-shadow: 0 2px 10px color-mix(in srgb, var(--color-primary) 25%, transparent);
       transform: translateY(-2px);
+      box-shadow: 0 4px 14px color-mix(in srgb, var(--color-primary) 15%, transparent);
     }
-    .chip:hover::before { opacity: .08; transform: scale(1); }
-    .chip.active {
-      background: var(--color-primary); color: #fff;
+    .profile-card.active {
       border-color: var(--color-primary);
-      box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 40%, transparent);
-      transform: translateY(-1px);
+      background: var(--color-primary-xl);
+      box-shadow: 0 2px 10px color-mix(in srgb, var(--color-primary) 18%, transparent);
     }
-    .chip.active::before { display: none; }
-    .chip:active { transform: scale(.95) translateY(0); }
-    .chip-icon { margin-right: .25rem; }
+    .profile-card-icon {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--color-primary-xl); color: var(--color-primary);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background var(--transition), color var(--transition);
+    }
+    .profile-card.active .profile-card-icon { background: var(--color-primary); color: #fff; }
+    .profile-card-title {
+      font-size: .9rem; font-weight: 700; font-family: var(--font-ui); display: block;
+    }
+    .profile-card-desc {
+      font-size: .78rem; color: var(--color-muted); line-height: 1.4;
+      display: block; margin-top: .15rem;
+    }
 
     /* ══════════════════════════════════════════════
        CARDS
@@ -588,7 +620,7 @@
       .container { padding: 1.2rem .9rem; }
       .page-title { font-size: 1.5rem; }
       .card { padding: 1.2rem 1rem; }
-      .profile-bar { padding: .85rem 1rem; gap: .7rem; }
+      .profile-grid { grid-template-columns: 1fr 1fr; }
 
       /* Upload zone: padding generoso para touch */
       .upload-zone { padding: 1.8rem .9rem; }
@@ -614,8 +646,7 @@
     }
     @media (max-width: 380px) {
       .adapt-grid { grid-template-columns: 1fr; }
-      .profile-chips { gap: .35rem; }
-      .chip { padding: .4rem .8rem; font-size: .8rem; }
+      .profile-grid { grid-template-columns: 1fr; }
     }
 
     /* ── Reduced motion ── */
@@ -648,10 +679,21 @@
         <span><strong>Demo:</strong> cualquier email + contraseña (mín. 6 caracteres) funciona.</span>
       </div>
 
+      <button type="button" class="btn btn-google" style="width:100%;justify-content:center" onclick="doGoogleAuth()" aria-label="Continuar con Google">
+        <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/>
+          <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
+        </svg>
+        Continuar con Google
+      </button>
+      <div class="auth-divider"><span>o con tu correo</span></div>
+
       <!-- Login -->
       <div id="panel-login" class="tab-panel active" role="tabpanel" aria-labelledby="tab-login">
         <div class="form-group">
-          <label for="login-email">Correo electrónico</label>
+          <label for="login-email">Correo (institucional o personal)</label>
           <input type="email" id="login-email" placeholder="tu@correo.com" autocomplete="email" inputmode="email" />
         </div>
         <div class="form-group">
@@ -673,7 +715,7 @@
           <input type="text" id="reg-name" placeholder="Tu nombre" autocomplete="name" />
         </div>
         <div class="form-group">
-          <label for="reg-email">Correo electrónico</label>
+          <label for="reg-email">Correo (institucional o personal)</label>
           <input type="email" id="reg-email" placeholder="tu@correo.com" autocomplete="email" inputmode="email" />
         </div>
         <div class="form-group">
@@ -701,7 +743,7 @@
       <div class="user-badge" id="user-badge" aria-live="polite"></div>
       <button class="btn btn-ghost btn-sm" onclick="doLogout()" id="logout-btn" style="display:none" aria-label="Cerrar sesión">
         <i data-lucide="log-out" style="width:14px;height:14px"></i>
-        <span class="distraction">Salir</span>
+        <span class="distraction">Cerrar sesión</span>
       </button>
     </div>
   </header>
@@ -715,25 +757,6 @@
       <h2 class="page-title">Adaptar material educativo</h2>
       <p class="page-sub">Subí un archivo o pegá el texto, elegí el perfil y las adaptaciones, y la IA transforma el contenido.</p>
 
-      <!-- ── SELECTOR DE PERFIL ───────────────────────────────── -->
-      <nav class="profile-bar" aria-label="Selector de perfil de accesibilidad">
-        <label id="profile-label">Perfil:</label>
-        <div class="profile-chips" role="group" aria-labelledby="profile-label">
-          <button class="chip active" data-profile="default" onclick="setProfile('default',this)" aria-pressed="true">
-            Sin perfil
-          </button>
-          <button class="chip" data-profile="visual" onclick="setProfile('visual',this)" aria-pressed="false">
-            <i data-lucide="eye" class="chip-icon" style="width:13px;height:13px"></i>Visual
-          </button>
-          <button class="chip" data-profile="tdah" onclick="setProfile('tdah',this)" aria-pressed="false">
-            <i data-lucide="zap" class="chip-icon" style="width:13px;height:13px"></i>TDAH / Cognitiva
-          </button>
-          <button class="chip" data-profile="auditiva" onclick="setProfile('auditiva',this)" aria-pressed="false">
-            <i data-lucide="ear" class="chip-icon" style="width:13px;height:13px"></i>Auditiva
-          </button>
-        </div>
-      </nav>
-
       <!-- ── PASO 1: CONTENIDO ──────────────────────────────── -->
       <section class="card" aria-labelledby="step1-title">
         <h3 class="card-title" id="step1-title">
@@ -741,6 +764,54 @@
           <i data-lucide="upload" style="width:16px;height:16px;color:var(--color-primary)"></i>
           Contenido a adaptar
         </h3>
+
+        <!-- ── SELECTOR DE ZONA DE ADAPTACIÓN ─────────────────── -->
+        <div class="profile-select-wrap">
+          <label id="profile-select-label">Perfil de adaptación</label>
+          <div class="profile-grid" role="radiogroup" aria-labelledby="profile-select-label">
+
+            <label class="profile-card active">
+              <input type="radio" name="adaptation-profile" value="tdah" checked
+                onchange="selectProfile(this)" aria-describedby="profile-desc-tdah" />
+              <span class="profile-card-icon"><i data-lucide="zap" style="width:16px;height:16px"></i></span>
+              <span>
+                <span class="profile-card-title">TDAH</span>
+                <span class="profile-card-desc" id="profile-desc-tdah">Focus, resúmenes cortos, viñetas</span>
+              </span>
+            </label>
+
+            <label class="profile-card">
+              <input type="radio" name="adaptation-profile" value="dislexia"
+                onchange="selectProfile(this)" aria-describedby="profile-desc-dislexia" />
+              <span class="profile-card-icon"><i data-lucide="book-open" style="width:16px;height:16px"></i></span>
+              <span>
+                <span class="profile-card-title">Dislexia</span>
+                <span class="profile-card-desc" id="profile-desc-dislexia">Tipografía legible, espaciado amplio, modo lectura</span>
+              </span>
+            </label>
+
+            <label class="profile-card">
+              <input type="radio" name="adaptation-profile" value="visual"
+                onchange="selectProfile(this)" aria-describedby="profile-desc-visual" />
+              <span class="profile-card-icon"><i data-lucide="eye" style="width:16px;height:16px"></i></span>
+              <span>
+                <span class="profile-card-title">Discapacidad visual</span>
+                <span class="profile-card-desc" id="profile-desc-visual">Lectura por voz TTS, alto contraste</span>
+              </span>
+            </label>
+
+            <label class="profile-card">
+              <input type="radio" name="adaptation-profile" value="cognitiva"
+                onchange="selectProfile(this)" aria-describedby="profile-desc-cognitiva" />
+              <span class="profile-card-icon"><i data-lucide="brain" style="width:16px;height:16px"></i></span>
+              <span>
+                <span class="profile-card-title">Discapacidad cognitiva</span>
+                <span class="profile-card-desc" id="profile-desc-cognitiva">Lectura fácil, pictogramas y sencillez</span>
+              </span>
+            </label>
+
+          </div>
+        </div>
 
         <!-- Zona de upload -->
         <div class="upload-zone" id="upload-zone"
