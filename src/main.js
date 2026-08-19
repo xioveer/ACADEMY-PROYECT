@@ -271,26 +271,21 @@
     setProcessing(true);
 
     const user = getCurrentUser() || {};
-    const payload = {
-      timestamp:   new Date().toISOString(),
-      user_email:  user.email || 'anonimo',
-      adaptations: Array.from(S.adaptations),
-      profile:     S.profile,
-    };
 
-    if (S.fileType === 'image') {
-      Object.assign(payload, {
-        content_type:   'image',
-        image_base64:   S.fileBase64,     // string base64 puro, sin prefijo data:
-        image_mime:     S.fileMime,       // "image/jpeg" | "image/png" | "image/webp"
-        image_filename: S.file.name,
-        text_content:   txt || '',
-      });
-    } else if (S.fileType === 'text-file') {
-      Object.assign(payload, { content_type: 'file', text_content: txt, filename: S.file?.name || '' });
-    } else {
-      Object.assign(payload, { content_type: 'text', text_content: txt });
-    }
+    /* Payload hacia n8n. Claves principales: content, profile, adaptations,
+       fileBase64, userEmail. Se agregan claves auxiliares (contentType,
+       fileMime, fileName, timestamp) como metadata útil para el workflow. */
+    const payload = {
+      content:     txt || '',                                      // texto plano (input directo o extraído del archivo)
+      profile:     S.profile,
+      adaptations: Array.from(S.adaptations),
+      fileBase64:  S.fileType === 'image' ? S.fileBase64 : null,    // string base64 puro, sin prefijo data:, solo si es imagen
+      userEmail:   user.email || 'anonimo',
+      contentType: S.fileType === 'image' ? 'image' : (S.fileType === 'text-file' ? 'file' : 'text'),
+      fileMime:    S.fileType === 'image' ? S.fileMime : null,      // "image/jpeg" | "image/png" | "image/webp"
+      fileName:    S.file?.name || null,
+      timestamp:   new Date().toISOString(),
+    };
 
     setProgress(12, 'Enviando contenido…');
 
@@ -559,18 +554,18 @@
     utt.rate = parseFloat(document.getElementById('tts-rate').value);
     utt.onend = () => {
       document.getElementById('tts-play-btn').innerHTML =
-        '<i data-lucide="play" style="width:14px;height:14px"></i> Reproducir';
+        '<i data-lucide="play" style="width:14px;height:14px"></i> Escuchar';
       if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
     };
     document.getElementById('tts-play-btn').innerHTML =
-      '<i data-lucide="volume-2" style="width:14px;height:14px;animation:spin 1s linear infinite"></i> Reproduciendo…';
+      '<i data-lucide="volume-2" style="width:14px;height:14px;animation:spin 1s linear infinite"></i> Escuchando…';
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
     window.speechSynthesis.speak(utt);
   }
   function stopSpeech() {
     window.speechSynthesis?.cancel();
     document.getElementById('tts-play-btn').innerHTML =
-      '<i data-lucide="play" style="width:14px;height:14px"></i> Reproducir';
+      '<i data-lucide="play" style="width:14px;height:14px"></i> Escuchar';
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
   }
 
@@ -622,6 +617,20 @@
     });
     a.click(); URL.revokeObjectURL(a.href);
   }
+  /* Imprime solo el resultado adaptado (ver @media print); desde el diálogo
+     del navegador el usuario puede elegir "Guardar como PDF" como destino. */
+  function printResult() {
+    if (!S.resultText) { showToast('No hay contenido para imprimir', 'warn'); return; }
+    window.print();
+  }
+  /* Alterna tipografía accesible + espaciado ampliado sobre el resultado adaptado */
+  function toggleReadingMode() {
+    const area = document.getElementById('result-html-main');
+    const btn  = document.getElementById('reading-mode-btn');
+    const on = area.classList.toggle('reading-mode');
+    btn.setAttribute('aria-pressed', String(on));
+    showToast(on ? 'Modo lectura activado' : 'Modo lectura desactivado');
+  }
   function clearAll() {
     if (S.pollAbort) { S.pollAbort.cancelled = true; S.pollAbort = null; setProcessing(false); }
     document.getElementById('text-input').value = '';
@@ -659,5 +668,6 @@
     switchTab, doLogin, doRegister, doLogout, doGoogleAuth, selectProfile,
     triggerFileInput, handleFileSelect, handleDragOver, handleDrop, clearFile,
     toggleAdapt, processContent, clearAll, copyResult, downloadTxt,
+    printResult, toggleReadingMode,
     switchResultTab, speakResult, stopSpeech,
   });

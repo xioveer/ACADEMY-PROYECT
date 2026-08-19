@@ -577,6 +577,23 @@
 
     .result-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
 
+    /* Modo lectura: tipografía accesible + espaciado ampliado sobre el resultado */
+    .result-html-area.reading-mode {
+      font-family: 'Atkinson Hyperlegible', 'OpenDyslexic', sans-serif;
+      font-size: 1.15rem;
+      line-height: 2.1;
+      letter-spacing: .02em;
+      word-spacing: .12em;
+      max-width: 68ch;
+      margin: 0 auto;
+      background: #FFFDF7;
+    }
+    #reading-mode-btn[aria-pressed="true"] {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+      background: var(--color-primary-xl);
+    }
+
     /* ══════════════════════════════════════════════
        AUDIO / TTS
     ══════════════════════════════════════════════ */
@@ -652,6 +669,17 @@
     /* ── Reduced motion ── */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+
+    /* ── Impresión / Guardar como PDF: solo el resultado adaptado ── */
+    @media print {
+      body * { visibility: hidden; }
+      .result-html-area, .result-html-area * { visibility: visible; }
+      .result-html-area {
+        position: absolute; left: 0; top: 0; width: 100%;
+        max-height: none; overflow: visible;
+        border: none; padding: 0; background: #fff; color: #000;
+      }
     }
   </style>
 </head>
@@ -1007,6 +1035,13 @@
             <button class="btn btn-ghost btn-sm" onclick="downloadTxt()">
               <i data-lucide="download" style="width:13px;height:13px"></i> Descargar .txt
             </button>
+            <button class="btn btn-ghost btn-sm" onclick="printResult()" aria-label="Imprimir o guardar como PDF">
+              <i data-lucide="file-text" style="width:13px;height:13px"></i> Imprimir / PDF
+            </button>
+            <button class="btn btn-ghost btn-sm" id="reading-mode-btn" onclick="toggleReadingMode()"
+              aria-pressed="false" aria-label="Alternar modo lectura accesible">
+              <i data-lucide="book-open" style="width:13px;height:13px"></i> Modo lectura
+            </button>
           </div>
         </div>
 
@@ -1016,9 +1051,9 @@
             Reproducción con síntesis de voz del navegador (Web Speech API, sin costo).
           </p>
           <div class="audio-player-wrap">
-            <button class="btn btn-accent" onclick="speakResult()" id="tts-play-btn" aria-label="Reproducir">
+            <button class="btn btn-accent" onclick="speakResult()" id="tts-play-btn" aria-label="Escuchar">
               <i data-lucide="play" style="width:14px;height:14px"></i>
-              Reproducir
+              Escuchar
             </button>
             <button class="btn btn-ghost btn-sm" onclick="stopSpeech()" aria-label="Detener">
               <i data-lucide="square" style="width:13px;height:13px"></i>
