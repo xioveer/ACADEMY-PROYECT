@@ -69,6 +69,7 @@
   /* ── ESTADO GLOBAL ── */
   const S = {
     file: null, fileType: null, fileBase64: null, fileMime: null,
+    extractedText: '', // contenido normalizado del último documento extraído
     extracting: false, // true mientras se extrae texto de un archivo en el navegador
     extractionId: 0,   // invalida extracciones que terminan después de cambiar de archivo
     adaptations: new Set(),
@@ -499,7 +500,7 @@
   function processFile(file) {
     if (!file) return;
     S.extractionId += 1;
-    S.file = file; S.fileBase64 = null; S.fileMime = file.type;
+    S.file = file; S.fileBase64 = null; S.fileMime = file.type; S.extractedText = '';
     const isImg = IMAGE_TYPES.includes(file.type);
     S.fileType = isImg ? 'image' : 'text-file';
 
@@ -528,7 +529,7 @@
   function clearFile() {
     S.extractionId += 1;
     S.extracting = false;
-    S.file = null; S.fileBase64 = null; S.fileMime = null; S.fileType = null;
+    S.file = null; S.fileBase64 = null; S.fileMime = null; S.fileType = null; S.extractedText = '';
     document.getElementById(S.ui.fileInputId).value = '';
     document.getElementById(S.ui.filePreviewId).classList.remove('visible');
     const thumb = document.getElementById(S.ui.previewThumbId);
@@ -785,6 +786,7 @@
 
       if (extractionId !== S.extractionId) return;
       textInput.value = text;
+      S.extractedText = text;
       showToast('Texto extraído de "' + file.name + '" ✅');
     } catch (err) {
       console.error('[EduInclusiva] Error extrayendo texto del archivo:', err);
@@ -812,6 +814,12 @@
   async function processContent() {
     if (S.extracting) { showToast('Esperá, todavía se está extrayendo el texto del archivo…', 'warn'); return; }
     const txt = cleanExtractedText(document.getElementById(S.ui.textInputId).value);
+    // El textarea es la fuente de verdad: permite editar la extracción antes de enviarla.
+    S.extractedText = txt;
+    if (S.fileType === 'text-file' && !S.extractedText) {
+      showToast('El documento está vacío o no se pudo extraer texto', 'error');
+      return;
+    }
     if (!S.file && !txt) { showToast('Subí un archivo o pegá texto primero', 'warn'); return; }
     if (S.adaptations.size === 0) { showToast('Elegí al menos una adaptación', 'warn'); return; }
     if (S.fileType === 'image' && !S.fileBase64) { showToast('Esperá, la imagen aún se está leyendo…', 'warn'); return; }
@@ -827,11 +835,14 @@
       ? uploadOriginalFile(S.file, S.currentUser.id)
       : Promise.resolve(null);
 
-    /* Payload hacia n8n. Claves principales: content, profile, adaptations,
+    /* Payload hacia n8n. `content` y `text` se envían con el mismo valor
+       para ser compatibles con workflows que lean cualquiera de las dos claves.
+       Nunca se hace fetch de un documento sin texto extraído. Claves principales: content, profile, adaptations,
        fileBase64, userEmail. Se agregan claves auxiliares (contentType,
        fileMime, fileName, timestamp) como metadata útil para el workflow. */
     const payload = {
-      content:     txt || '',                                      // texto plano (input directo o extraído del archivo)
+      content:     S.extractedText,
+      text:        S.extractedText,
       profile:     S.profile,
       adaptations: Array.from(S.adaptations),
       fileBase64:  S.fileType === 'image' ? S.fileBase64 : null,    // string base64 puro, sin prefijo data:, solo si es imagen
