@@ -19,10 +19,21 @@
   const CONSENT_KEY  = 'edu_consent_v1';
   const HISTORY_MAX  = 30;   // tope de entradas mostradas/guardadas (ver también src/lib/db.js)
   const IMAGE_TYPES  = ['image/jpeg', 'image/png', 'image/webp'];
-  const POLL_INTERVAL_MS  = 2500;   // frecuencia de consulta del estado del job
-  const POLL_MAX_ATTEMPTS = 48;     // 48 × 2.5s ≈ 2 min de timeout total
+  const UPLOAD_TIMEOUT_MS    = 120000;         // tope para el envío inicial (archivos grandes en conexión lenta)
+  const POLL_INTERVAL_MS     = 2000;           // intervalo base de polling
+  const POLL_INTERVAL_MAX_MS = 8000;           // techo del backoff exponencial ante errores transitorios
+  const POLL_TIMEOUT_MS      = 5 * 60 * 1000;  // tope total de espera del job (antes: 48 intentos fijos ≈ 2min, insuficiente para archivos grandes)
   const JOB_DONE_STATUSES  = ['done', 'completed', 'success', 'finished'];
   const JOB_ERROR_STATUSES = ['error', 'failed', 'failure'];
+  const NOT_FOUND_MAX_STREAK = 5; // reintentos tolerados antes de tratar 'not_found' como error definitivo
+
+  /* Etapas reales reportadas por el workflow de n8n (columna `stage` del job) */
+  const STAGE_LABELS = {
+    en_cola:            'En cola, esperando procesamiento…',
+    analizando_con_ia:  'Analizando con inteligencia artificial…',
+    listo:               '¡Listo!',
+    error:                'Error en el procesamiento',
+  };
 
   /* Ids del DOM que usan processContent/renderResult/setProgress/TTS/etc.
      S.ui apunta siempre a los ids de la vista activa — así toda la lógica
@@ -75,7 +86,7 @@
     adaptations: new Set(),
     profile: 'tdah',
     resultText: '',   // texto plano para TTS y descarga
-    pollAbort: null,  // { cancelled: bool } — permite cancelar el polling en curso
+    pollAbort: null,  // { cancelled: bool, xhr } — permite cancelar el envío/polling en curso
     ui: { ...DEFAULT_UI },   // ids activos: los reasigna el router en cada navegación
     tdahStep: 1,
     currentUser: null,  // { id?, email, name, avatarUrl? } — id solo existe con sesión Supabase real
@@ -835,37 +846,44 @@
       ? uploadOriginalFile(S.file, S.currentUser.id)
       : Promise.resolve(null);
 
-    /* Payload hacia n8n. `content` y `text` se envían con el mismo valor
-       para ser compatibles con workflows que lean cualquiera de las dos claves.
-       Nunca se hace fetch de un documento sin texto extraído. Claves principales: content, profile, adaptations,
-       fileBase64, userEmail. Se agregan claves auxiliares (contentType,
-       fileMime, fileName, timestamp) como metadata útil para el workflow. */
+    /* Payload hacia n8n. Las claves deben coincidir EXACTAMENTE con las que lee
+       el nodo "2 · Edit Fields (Normalizar)" del workflow EduInclusiva AI
+       (body.text_content, body.content_type, body.image_base64, body.image_mime,
+       body.adaptations, body.profile, body.idioma) — cualquier otro nombre llega
+       vacío al normalizador y el job termina en error "contenido no legible".
+       Nunca se hace fetch de un documento sin texto extraído. Se agregan claves
+       auxiliares (userEmail, fileName, timestamp) como metadata útil, ignoradas
+       por el normalizador pero sin costo. */
     const payload = {
-      content:     S.extractedText,
-      text:        S.extractedText,
-      profile:     S.profile,
-      adaptations: Array.from(S.adaptations),
-      fileBase64:  S.fileType === 'image' ? S.fileBase64 : null,    // string base64 puro, sin prefijo data:, solo si es imagen
-      userEmail:   user.email || 'anonimo',
-      contentType: S.fileType === 'image' ? 'image' : (S.fileType === 'text-file' ? 'file' : 'text'),
-      fileMime:    S.fileType === 'image' ? S.fileMime : null,      // "image/jpeg" | "image/png" | "image/webp"
-      fileName:    S.file?.name || null,
-      timestamp:   new Date().toISOString(),
+      text_content: S.extractedText,
+      content_type: S.fileType === 'image' ? 'image' : (S.fileType === 'text-file' ? 'file' : 'text'),
+      profile:      S.profile,
+      adaptations:  Array.from(S.adaptations),
+      image_base64: S.fileType === 'image' ? S.fileBase64 : null,   // string base64 puro, sin prefijo data:, solo si es imagen
+      image_mime:   S.fileType === 'image' ? S.fileMime : null,     // "image/jpeg" | "image/png" | "image/webp"
+      idioma:       'es',
+      userEmail:    user.email || 'anonimo',
+      fileName:     S.file?.name || null,
+      timestamp:    new Date().toISOString(),
     };
 
     setProgress(12, 'Enviando contenido…');
 
-    const abortToken = { cancelled: false };
+    const abortToken = { cancelled: false, xhr: null };
     S.pollAbort = abortToken;
 
     try {
-      const res = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      const res = await postJSON(WEBHOOK_URL, payload, {
+        timeoutMs: UPLOAD_TIMEOUT_MS,
+        abortToken,
+        // Progreso REAL de bytes subidos (no estimado): útil cuando el archivo es grande
+        // y la petición tardaría en completarse sin dar ninguna señal al usuario.
+        onUploadProgress: (frac) => {
+          setProgress(12 + Math.round(frac * 16), frac < 1 ? 'Subiendo contenido…' : 'Contenido enviado, esperando confirmación…');
+        },
       });
 
-      const rawText = await res.text();               // nunca lanza, siempre devuelve string
+      const rawText = res.text;                        // nunca lanza, siempre devuelve string
 
       if (!res.ok) {
         const httpMsg = rawText.trim() || `HTTP ${res.status} ${res.statusText}`;
@@ -919,18 +937,44 @@
       renderResult(data, uploadPromise);
 
     } catch (err) {
-      if (abortToken.cancelled) return;
+      if (abortToken.cancelled || err?.aborted) return;
       console.error('[EduInclusiva] fetch error:', err);
+      const esTimeout = err?.timeout === true;
       renderFallback(
         '⚠️ No se pudo conectar con el servidor.\n\n' +
-        'Causa probable: error de red, CORS bloqueado o el webhook de n8n no está activo.\n\n' +
+        'Causa probable: ' + (esTimeout
+          ? 'el archivo es muy grande o la conexión es lenta, y el envío superó el tiempo máximo de espera.'
+          : 'error de red, CORS bloqueado o el webhook de n8n no está activo.') + '\n\n' +
         'Detalle técnico: ' + err.message
       );
-      showToast('Sin conexión con el servidor', 'error');
+      showToast(esTimeout ? 'El envío tardó demasiado' : 'Sin conexión con el servidor', 'error');
     } finally {
       if (S.pollAbort === abortToken) S.pollAbort = null;
       setTimeout(() => setProcessing(false), 700);
     }
+  }
+
+  /* Envía JSON por XHR (en vez de fetch) para poder reportar progreso REAL de subida
+     (evento `upload.onprogress`, no disponible con fetch) y aplicar un timeout duro:
+     con archivos grandes, fetch puede quedarse "colgado" sin ninguna señal para el
+     usuario ni forma de cortar la espera. abortToken.xhr permite cancelarlo desde
+     clearAll() si el usuario limpia el formulario a mitad de la subida. */
+  function postJSON(url, payload, { timeoutMs, onUploadProgress, abortToken } = {}) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      if (abortToken) abortToken.xhr = xhr;
+      xhr.open('POST', url, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      if (timeoutMs) xhr.timeout = timeoutMs;
+      xhr.upload.onprogress = (e) => {
+        if (onUploadProgress && e.lengthComputable) onUploadProgress(e.loaded / e.total);
+      };
+      xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, statusText: xhr.statusText, text: xhr.responseText });
+      xhr.onerror = () => reject(new Error('Error de red al enviar el contenido.'));
+      xhr.ontimeout = () => reject(Object.assign(new Error('El envío superó los ' + Math.round(timeoutMs / 1000) + 's de espera máxima.'), { timeout: true }));
+      xhr.onabort = () => reject(Object.assign(new Error('cancelled'), { aborted: true }));
+      xhr.send(JSON.stringify(payload));
+    });
   }
 
   /* ══════════════════════════════════════════════
@@ -938,20 +982,37 @@
   ══════════════════════════════════════════════ */
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+  /* Traduce el `progress`/`stage` reales que reporta la Data Table de jobs en n8n
+     (columnas agregadas junto con el checkpoint "4b · Actualizar Job (Analizando IA)")
+     a un porcentaje y una etiqueta legibles. Si el backend no reporta progreso
+     (workflows viejos o sin el campo), cae a una estimación razonable. */
+  function jobProgressPct(data, status) {
+    const n = Number(data?.progress);
+    if (Number.isFinite(n)) return Math.min(Math.max(n, 5), 95);
+    return status === 'processing' ? 60 : 40;
+  }
+  function jobStageLabel(data, status) {
+    return STAGE_LABELS[data?.stage] || (status === 'processing' ? 'Procesando…' : 'Verificando estado del job…');
+  }
+
   /**
-   * Consulta STATUS_WEBHOOK_URL cada POLL_INTERVAL_MS hasta que el job
-   * termine (éxito o error) o se supere POLL_MAX_ATTEMPTS.
+   * Consulta STATUS_WEBHOOK_URL hasta que el job termine (éxito o error) o se
+   * supere POLL_TIMEOUT_MS. Usa un intervalo con backoff exponencial (hasta
+   * POLL_INTERVAL_MAX_MS) ante errores transitorios de red/HTTP, y un límite
+   * de tiempo total en vez de un número fijo de intentos, para no cortar la
+   * espera antes de tiempo con archivos grandes que tardan más en procesarse.
    * abortToken permite cancelar el loop si el usuario limpia el formulario.
    */
   async function pollJobStatus(jobId, abortToken) {
-    for (let attempt = 1; attempt <= POLL_MAX_ATTEMPTS; attempt++) {
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
+    let delay = POLL_INTERVAL_MS;
+    let notFoundStreak = 0;
+
+    while (Date.now() < deadline) {
       if (abortToken.cancelled) return null;
 
-      await sleep(POLL_INTERVAL_MS);
+      await sleep(delay);
       if (abortToken.cancelled) return null;
-
-      const pct = Math.min(30 + Math.round((attempt / POLL_MAX_ATTEMPTS) * 65), 95);
-      setProgress(pct, `Verificando estado del job… (${attempt}/${POLL_MAX_ATTEMPTS})`);
 
       let data;
       try {
@@ -960,18 +1021,32 @@
         const rawText = await res.text();
 
         if (!res.ok) {
-          // Error transitorio del servidor de estado: reintentar hasta agotar los intentos
+          // Error transitorio del servidor de estado: reintentar con backoff
           console.warn('[EduInclusiva] status check HTTP ' + res.status);
+          delay = Math.min(Math.round(delay * 1.6), POLL_INTERVAL_MAX_MS);
           continue;
         }
         try { data = JSON.parse(rawText); } catch { data = { status: rawText.trim() }; }
       } catch (err) {
-        // Error de red puntual: reintentar en el siguiente intento
+        // Error de red puntual: reintentar con backoff
         console.warn('[EduInclusiva] status check network error:', err);
+        delay = Math.min(Math.round(delay * 1.6), POLL_INTERVAL_MAX_MS);
         continue;
       }
 
+      delay = POLL_INTERVAL_MS; // la consulta respondió correctamente: resetear el backoff
+
       const status = (data?.status || '').toLowerCase();
+
+      if (status === 'not_found') {
+        // El job puede tardar un instante en quedar visible tras el insert; tolerar
+        // unos pocos "not_found" antes de tratarlo como error definitivo.
+        if (++notFoundStreak >= NOT_FOUND_MAX_STREAK) {
+          throw new Error(`No se encontró el job en el servidor (job_id: ${jobId}).`);
+        }
+        continue;
+      }
+      notFoundStreak = 0;
 
       if (JOB_DONE_STATUSES.includes(status)) {
         return data;
@@ -979,10 +1054,12 @@
       if (JOB_ERROR_STATUSES.includes(status)) {
         throw new Error(data?.error || data?.message || 'El job de n8n finalizó con error.');
       }
-      // status en 'queued' / 'processing' / etc. → seguir esperando
+
+      // status en 'processing' / etc. → seguir esperando, mostrando el progreso real
+      setProgress(jobProgressPct(data, status), jobStageLabel(data, status));
     }
 
-    throw new Error(`Tiempo de espera agotado esperando el job (${jobId}) tras ${POLL_MAX_ATTEMPTS} intentos.`);
+    throw new Error(`Tiempo de espera agotado esperando el job (${jobId}) tras ${Math.round(POLL_TIMEOUT_MS / 1000)}s.`);
   }
 
   /* Muestra un mensaje de estado amigable en el área de resultado (sin romper la UI) */
@@ -1348,7 +1425,12 @@
     showToast(on ? 'Modo lectura activado' : 'Modo lectura desactivado');
   }
   function clearAll() {
-    if (S.pollAbort) { S.pollAbort.cancelled = true; S.pollAbort = null; setProcessing(false); }
+    if (S.pollAbort) {
+      S.pollAbort.cancelled = true;
+      if (S.pollAbort.xhr) { try { S.pollAbort.xhr.abort(); } catch { /* ya finalizado */ } }
+      S.pollAbort = null;
+      setProcessing(false);
+    }
     document.getElementById(S.ui.textInputId).value = '';
     clearFile();
     document.querySelectorAll('.adapt-option').forEach(el => {
