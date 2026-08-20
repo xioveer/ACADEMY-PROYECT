@@ -1,5 +1,5 @@
   import { getCurrentUser, onAuthStateChange, signInWithPassword, signUp, signInWithGoogle, signOut } from './lib/auth.js';
-  import { isSupabaseConfigured } from './lib/supabaseClient.js';
+  import { isSupabaseConfigured, supabase } from './lib/supabaseClient.js';
   import * as db from './lib/db.js';
   import { uploadOriginalFile, uploadAvatar } from './lib/storage.js';
   import { initAnalytics, trackPageView, trackEvent } from './lib/analytics.js';
@@ -31,7 +31,14 @@
   const STAGE_LABELS = {
     en_cola:            'En cola, esperando procesamiento…',
     analizando_con_ia:  'Analizando con inteligencia artificial…',
+    queued:             'En cola, esperando procesamiento…',
+    extracting:         'Extrayendo el contenido del documento…',
+    chunking:           'Preparando fragmentos para RAG…',
+    retrieving:         'Buscando contexto relevante…',
+    adapting:           'Adaptando el contenido con IA…',
+    completed:          '¡Listo!',
     listo:               '¡Listo!',
+    failed:              'Error en el procesamiento',
     error:                'Error en el procesamiento',
   };
 
@@ -918,7 +925,9 @@
         setProgress(30, 'Job encolado, esperando procesamiento…');
         let finalData;
         try {
-          finalData = await pollJobStatus(jobId, abortToken);
+          finalData = isSupabaseConfigured
+            ? await pollJobStatusFromSupabase(jobId, abortToken)
+            : await pollJobStatus(jobId, abortToken);
         } catch (pollErr) {
           if (abortToken.cancelled) return;
           console.error('[EduInclusiva] poll error:', pollErr);
@@ -993,6 +1002,88 @@
   }
   function jobStageLabel(data, status) {
     return STAGE_LABELS[data?.stage] || (status === 'processing' ? 'Procesando…' : 'Verificando estado del job…');
+  }
+
+  const RAG_STATUS_PROGRESS = {
+    queued: 5,
+    extracting: 20,
+    chunking: 40,
+    retrieving: 60,
+    adapting: 80,
+    completed: 100,
+    failed: 100,
+  };
+
+  /** Consulta el estado persistido por n8n para un job de RAG. */
+  async function checkJobStatus(jobId) {
+    if (!supabase) throw new Error('Supabase no está configurado.');
+
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('progress_status, result_data')
+      .eq('id', jobId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Consulta Supabase cada tres segundos. Los errores de red son transitorios:
+   * se registran y el siguiente tick vuelve a intentarlo sin cerrar el job.
+   */
+  function pollJobStatusFromSupabase(jobId, abortToken) {
+    return new Promise((resolve, reject) => {
+      let inFlight = false;
+      const stop = () => {
+        clearInterval(intervalId);
+        if (abortToken?.supabaseInterval === intervalId) abortToken.supabaseInterval = null;
+      };
+      const cancel = () => {
+        stop();
+        resolve(null);
+      };
+
+      const check = async () => {
+        if (abortToken?.cancelled) {
+          cancel();
+          return;
+        }
+        if (inFlight) return;
+        inFlight = true;
+
+        try {
+          const job = await checkJobStatus(jobId);
+          if (!job) {
+            console.warn('[EduInclusiva] Job no disponible todavía:', jobId);
+            return;
+          }
+
+          const progressStatus = String(job.progress_status || 'queued').toLowerCase();
+          setProgress(RAG_STATUS_PROGRESS[progressStatus] ?? 40, jobStageLabel({ stage: progressStatus }, 'processing'));
+
+          if (progressStatus === 'completed') {
+            stop();
+            resolve(job.result_data);
+          } else if (progressStatus === 'failed' || progressStatus === 'error') {
+            stop();
+            reject(new Error('El job de procesamiento finalizó con error.'));
+          }
+        } catch (err) {
+          // No se rechaza: el siguiente intervalo reintenta la consulta.
+          console.warn('[EduInclusiva] Error transitorio consultando el job:', err);
+        } finally {
+          inFlight = false;
+        }
+      };
+
+      const intervalId = setInterval(check, 3000);
+      if (abortToken) {
+        abortToken.supabaseInterval = intervalId;
+        abortToken.cancelSupabasePoll = cancel;
+      }
+      check();
+    });
   }
 
   /**
@@ -1428,6 +1519,8 @@
     if (S.pollAbort) {
       S.pollAbort.cancelled = true;
       if (S.pollAbort.xhr) { try { S.pollAbort.xhr.abort(); } catch { /* ya finalizado */ } }
+      if (S.pollAbort.cancelSupabasePoll) S.pollAbort.cancelSupabasePoll();
+      else if (S.pollAbort.supabaseInterval) clearInterval(S.pollAbort.supabaseInterval);
       S.pollAbort = null;
       setProcessing(false);
     }
