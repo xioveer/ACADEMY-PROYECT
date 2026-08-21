@@ -22,7 +22,8 @@
              Play, Square, RefreshCw, ChevronRight, BookOpen, Brain,
              Palette, Accessibility, Volume2, AlignLeft, X, Shield, History,
              LayoutGrid, EyeOff, GraduationCap, ArrowRight, ArrowLeft,
-             VolumeX, Settings, Key, User, ChevronDown } from
+             VolumeX, Settings, Key, User, ChevronDown, Search, Contrast,
+             Moon, Sun, Captions } from
       'https://cdn.jsdelivr.net/npm/lucide@latest/dist/esm/lucide.js';
     window._lucide = { createIcons, icons: {
       Eye, Zap, Ear, FileText, Image, Upload, Mic, Copy, Download,
@@ -30,7 +31,8 @@
       RefreshCw, ChevronRight, BookOpen, Brain, Palette, Accessibility,
       Volume2, AlignLeft, X, Shield, History,
       LayoutGrid, EyeOff, GraduationCap, ArrowRight, ArrowLeft,
-      VolumeX, Settings, Key, User, ChevronDown
+      VolumeX, Settings, Key, User, ChevronDown, Search, Contrast,
+      Moon, Sun, Captions
     }};
     document.addEventListener('DOMContentLoaded', () => {
       createIcons({ icons: window._lucide.icons });
@@ -83,7 +85,7 @@
     .accessibility-profile-card:hover { transform: translateY(-3px); border-color: var(--color-primary); box-shadow: var(--shadow-md); }
     .accessibility-profile-card:focus-visible, .onboarding-standard:focus-visible { outline: 4px solid #1D4ED8; outline-offset: 3px; }
     .accessibility-profile-card[aria-pressed="true"] { border-color: var(--color-primary); background: var(--color-primary-xl); }
-    .accessibility-profile-icon { font-size: 1.65rem; line-height: 1; }
+    .accessibility-profile-icon { display: inline-flex; font-size: 1.65rem; line-height: 1; color: var(--color-accent); }
     .accessibility-profile-card strong { font-family: var(--font-ui); font-size: 1.08rem; }
     .accessibility-profile-card small { color: var(--color-muted); line-height: 1.45; font-size: .9rem; }
     .onboarding-standard { display: flex; margin: 1.35rem auto 0; }
@@ -361,6 +363,41 @@
     .search-result-label { font-size: .87rem; font-weight: 600; color: var(--color-text); }
     .search-result-sublabel { font-size: .76rem; color: var(--color-muted); }
     .search-result-empty { padding: .8rem; font-size: .84rem; color: var(--color-muted); text-align: center; }
+
+    /* ══════════════════════════════════════════════
+       CONTROLES RÁPIDOS DE ACCESIBILIDAD (header)
+       Alto contraste, magnificador de fuente y modo oscuro — globales,
+       independientes del perfil de accesibilidad elegido en el onboarding.
+    ══════════════════════════════════════════════ */
+    .header-a11y-controls { display: flex; align-items: center; gap: .5rem; }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: .4rem; padding: .35rem .7rem;
+      border-radius: 999px; background: var(--color-accent-xl); color: var(--color-accent);
+      font-size: .74rem; font-weight: 700; white-space: nowrap; font-family: var(--font-ui);
+    }
+    .status-pill .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-accent); flex-shrink: 0; }
+    .status-pill.status-offline { background: color-mix(in srgb, var(--color-muted) 18%, transparent); color: var(--color-muted); }
+    .status-pill.status-offline .status-dot { background: var(--color-muted); }
+    @media (prefers-reduced-motion: no-preference) {
+      .status-pill:not(.status-offline) .status-dot { animation: status-pulse 2s ease-in-out infinite; }
+    }
+    @keyframes status-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+    .font-magnifier { display: inline-flex; align-items: center; border: 2px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
+    .font-magnifier button {
+      border: none; background: var(--color-surface); color: var(--color-text); font-weight: 800;
+      width: 30px; height: 30px; cursor: pointer; font-size: .8rem; line-height: 1; font-family: var(--font-ui);
+    }
+    .font-magnifier button:hover { background: var(--color-primary-xl); color: var(--color-primary); }
+    .font-magnifier button:first-child { border-right: 2px solid var(--color-border); }
+
+    .a11y-icon-btn {
+      display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+      border: 2px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface);
+      color: var(--color-text); cursor: pointer; transition: border-color var(--transition), color var(--transition);
+    }
+    .a11y-icon-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    .a11y-icon-btn[aria-pressed="true"] { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
     @media (max-width: 860px) {
       .header-search { display: none; }
     }
@@ -1046,11 +1083,42 @@
     #consent-banner .btn { flex-shrink: 0; }
 
     /* ══════════════════════════════════════════════
+       ALTO CONTRASTE Y MODO OSCURO (toggles globales del header)
+       Se combinan con cualquier perfil de accesibilidad activo — van al
+       final de la cascada de temas a propósito, para ganar el empate de
+       especificidad contra body.theme-* / body.profile-*.
+    ══════════════════════════════════════════════ */
+    body.high-contrast {
+      --color-bg: #FFFFFF; --color-surface: #FFFFFF; --color-border: #000000;
+      --color-text: #000000; --color-muted: #1C1917;
+      --color-primary: #0B3D91; --color-primary-d: #06285E; --color-primary-xl: #DCE6FA;
+      --color-accent: #005A2B; --color-accent-xl: #D8F5E3;
+    }
+    body.high-contrast .card, body.high-contrast .app-header, body.high-contrast .modal-box,
+    body.high-contrast input, body.high-contrast textarea, body.high-contrast select,
+    body.high-contrast .btn { border-width: 2px !important; }
+    body.high-contrast a { text-decoration: underline; }
+
+    body.dark-mode {
+      --color-bg: #0B0F17; --color-surface: #151B26; --color-border: #2B3444;
+      --color-text: #F3F4F6; --color-muted: #9CA3AF; --color-overlay: rgba(0,0,0,.72);
+      --color-primary-xl: #1E2A47; --color-accent-xl: #10261E;
+    }
+    body.dark-mode.high-contrast {
+      --color-bg: #000000; --color-surface: #000000; --color-border: #FFFFFF;
+      --color-text: #FFFFFF; --color-muted: #FFFFFF;
+      --color-primary: #7DA9FF; --color-primary-d: #A9C6FF; --color-primary-xl: #10192E;
+      --color-accent: #5EE6A6; --color-accent-xl: #06231A;
+    }
+
+    /* ══════════════════════════════════════════════
        RESPONSIVE — Mobile-first fixes
     ══════════════════════════════════════════════ */
     @media (max-width: 640px) {
       .app-header { padding: .75rem 1rem; }
       .logo { font-size: 1.05rem; }
+      .header-a11y-controls .status-pill { display: none; }
+      .header-a11y-controls .font-magnifier button { width: 26px; height: 26px; }
       .container { padding: 1.2rem .9rem; }
       .page-title { font-size: 1.5rem; }
       .card { padding: 1.2rem 1rem; }
@@ -1085,6 +1153,7 @@
     @media (max-width: 380px) {
       .adapt-grid { grid-template-columns: 1fr; }
       .profile-grid { grid-template-columns: 1fr; }
+      .header-a11y-controls .font-magnifier { display: none; }
     }
 
     /* ── Reduced motion ── */
@@ -1217,19 +1286,19 @@
       </div>
       <div class="accessibility-profile-grid" aria-label="Perfiles de accesibilidad">
         <button type="button" class="accessibility-profile-card" data-accessibility-profile="low-vision" aria-pressed="false" onclick="chooseAccessibilityProfile('low-vision')">
-          <span class="accessibility-profile-icon" aria-hidden="true">◐</span><strong>Baja Visión</strong><small>Alto contraste, texto grande y controles de gran tamaño.</small>
+          <span class="accessibility-profile-icon" aria-hidden="true"><i data-lucide="search" style="width:28px;height:28px"></i></span><strong>Baja Visión</strong><small>Alto contraste, texto grande y controles de gran tamaño.</small>
         </button>
         <button type="button" class="accessibility-profile-card" data-accessibility-profile="dyslexia" aria-pressed="false" onclick="chooseAccessibilityProfile('dyslexia')">
-          <span class="accessibility-profile-icon" aria-hidden="true">Aa</span><strong>Lector con Dislexia</strong><small>Espaciado ampliado y una experiencia de lectura más clara.</small>
+          <span class="accessibility-profile-icon" aria-hidden="true"><i data-lucide="book-open" style="width:28px;height:28px"></i></span><strong>Lector con Dislexia</strong><small>Espaciado ampliado y una experiencia de lectura más clara.</small>
         </button>
         <button type="button" class="accessibility-profile-card" data-accessibility-profile="neuro" aria-pressed="false" onclick="chooseAccessibilityProfile('neuro')">
           <span class="accessibility-profile-icon" aria-hidden="true"><i data-lucide="brain" style="width:28px;height:28px"></i></span><strong>Neurodivergente</strong><small>Optimizado para TDAH y fatiga cognitiva: resúmenes ejecutivos, viñetas claras y cero distracciones.</small>
         </button>
         <button type="button" class="accessibility-profile-card" data-accessibility-profile="blind" aria-pressed="false" onclick="chooseAccessibilityProfile('blind')">
-          <span class="accessibility-profile-icon" aria-hidden="true">◉</span><strong>Usuario Ciego</strong><small>Navegación por teclado y apoyo de lector de pantalla y voz.</small>
+          <span class="accessibility-profile-icon" aria-hidden="true"><i data-lucide="volume-2" style="width:28px;height:28px"></i></span><strong>Usuario Ciego</strong><small>Navegación por teclado y apoyo de lector de pantalla y voz.</small>
         </button>
         <button type="button" class="accessibility-profile-card" data-accessibility-profile="deaf" aria-pressed="false" onclick="chooseAccessibilityProfile('deaf')">
-          <span class="accessibility-profile-icon" aria-hidden="true">▣</span><strong>Persona Sorda</strong><small>Alertas visuales, contenido textual y prioridad para subtítulos.</small>
+          <span class="accessibility-profile-icon" aria-hidden="true"><i data-lucide="captions" style="width:28px;height:28px"></i></span><strong>Persona Sorda</strong><small>Alertas visuales, contenido textual y prioridad para subtítulos.</small>
         </button>
       </div>
       <button type="button" class="btn btn-ghost onboarding-standard" data-accessibility-profile="standard" aria-pressed="false" onclick="chooseAccessibilityProfile('standard')">Continuar con perfil Estándar</button>
@@ -1340,6 +1409,24 @@
     </div>
 
     <div class="header-right">
+      <div class="header-a11y-controls" role="group" aria-label="Controles rápidos de accesibilidad">
+        <span class="status-pill distraction" id="system-status-pill">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="system-status-text">Sistema Activo</span>
+        </span>
+        <div class="font-magnifier distraction" role="group" aria-label="Tamaño de fuente">
+          <button type="button" onclick="decreaseFontScale()" aria-label="Reducir tamaño de fuente">A-</button>
+          <button type="button" onclick="increaseFontScale()" aria-label="Aumentar tamaño de fuente">A+</button>
+        </div>
+        <button type="button" class="a11y-icon-btn" id="high-contrast-toggle" onclick="toggleHighContrast()"
+          aria-pressed="false" aria-label="Activar alto contraste">
+          <i data-lucide="contrast" style="width:15px;height:15px"></i>
+        </button>
+        <button type="button" class="a11y-icon-btn" id="dark-mode-toggle" onclick="toggleDarkMode()"
+          aria-pressed="false" aria-label="Activar modo oscuro">
+          <i data-lucide="moon" style="width:15px;height:15px"></i>
+        </button>
+      </div>
       <button class="btn btn-ghost btn-sm" onclick="navigateTo('lobby')" aria-label="Cambiar de perfil / interfaz">
         <i data-lucide="layout-grid" style="width:14px;height:14px"></i>
         <span class="distraction">Cambiar perfil</span>

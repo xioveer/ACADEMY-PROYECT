@@ -360,6 +360,71 @@
     showToast('Preferencia de accesibilidad guardada ✅');
   }
 
+  /* ══════════════════════════════════════════════
+     CONTROLES RÁPIDOS DE ACCESIBILIDAD (header): alto contraste,
+     magnificador de fuente y modo oscuro. Son globales — se combinan con
+     cualquier perfil elegido en el onboarding, no lo reemplazan.
+  ══════════════════════════════════════════════ */
+  const A11Y_CONTRAST_KEY = 'edu_high_contrast';
+  const A11Y_DARK_KEY = 'edu_dark_mode';
+  const A11Y_FONT_SCALE_KEY = 'edu_font_scale';
+  const FONT_SCALE_MIN = 0.85, FONT_SCALE_MAX = 1.5, FONT_SCALE_STEP = 0.1;
+  let fontScale = 1;
+
+  function toggleHighContrast() {
+    const on = document.body.classList.toggle('high-contrast');
+    try { localStorage.setItem(A11Y_CONTRAST_KEY, on ? '1' : '0'); } catch {}
+    document.getElementById('high-contrast-toggle')?.setAttribute('aria-pressed', String(on));
+  }
+
+  function toggleDarkMode() {
+    const on = document.body.classList.toggle('dark-mode');
+    try { localStorage.setItem(A11Y_DARK_KEY, on ? '1' : '0'); } catch {}
+    const btn = document.getElementById('dark-mode-toggle');
+    btn?.setAttribute('aria-pressed', String(on));
+    btn?.querySelector('i')?.setAttribute('data-lucide', on ? 'sun' : 'moon');
+    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+  }
+
+  function applyFontScale(scale) {
+    fontScale = Math.round(Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, scale)) * 100) / 100;
+    document.documentElement.style.fontSize = (16 * fontScale) + 'px';
+    try { localStorage.setItem(A11Y_FONT_SCALE_KEY, String(fontScale)); } catch {}
+  }
+  function increaseFontScale() { applyFontScale(fontScale + FONT_SCALE_STEP); }
+  function decreaseFontScale() { applyFontScale(fontScale - FONT_SCALE_STEP); }
+
+  /* Restaura los 3 toggles desde localStorage y fija el texto del pill de
+     estado según haya o no backend real configurado. */
+  function initA11yControls() {
+    try {
+      if (localStorage.getItem(A11Y_CONTRAST_KEY) === '1') {
+        document.body.classList.add('high-contrast');
+        document.getElementById('high-contrast-toggle')?.setAttribute('aria-pressed', 'true');
+      }
+      if (localStorage.getItem(A11Y_DARK_KEY) === '1') {
+        document.body.classList.add('dark-mode');
+        const btn = document.getElementById('dark-mode-toggle');
+        btn?.setAttribute('aria-pressed', 'true');
+        btn?.querySelector('i')?.setAttribute('data-lucide', 'sun');
+      }
+      const savedScale = parseFloat(localStorage.getItem(A11Y_FONT_SCALE_KEY) || '1');
+      if (!Number.isNaN(savedScale)) applyFontScale(savedScale);
+    } catch {}
+
+    const pill = document.getElementById('system-status-pill');
+    const text = document.getElementById('system-status-text');
+    if (pill && text) {
+      if (isSupabaseConfigured) {
+        text.textContent = 'Sistema Activo';
+        pill.classList.remove('status-offline');
+      } else {
+        text.textContent = 'Modo demo (sin backend)';
+        pill.classList.add('status-offline');
+      }
+    }
+  }
+
   function renderUserBadge(user) {
     const rawName = user.name || user.email || '';
     const initials = escHtml(rawName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase());
@@ -559,6 +624,7 @@
   }
 
   window.addEventListener('DOMContentLoaded', async () => {
+    initA11yControls();
     if (localStorage.getItem(CONSENT_KEY)) initAnalytics();
 
     // En modo Supabase, mantiene la sesión sincronizada (login/logout/expiración
@@ -1844,4 +1910,5 @@
     chooseAccessibilityProfile,
     doVerifyTwoFactor, doResendTwoFactor, doCancelTwoFactor,
     toggleUserMenu, doUpdatePassword, doUpdateDefaultProfile,
+    toggleHighContrast, toggleDarkMode, increaseFontScale, decreaseFontScale,
   });
