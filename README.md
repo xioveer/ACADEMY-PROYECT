@@ -80,6 +80,10 @@ persistencia reales:
    ```
 5. Reiniciá `npm run dev` (o redeployá). La app detecta automáticamente que Supabase está
    configurado y deja de usar el modo demo.
+6. Aplicá también [`supabase/migrations/20260820_auth_security_hardening.sql`](./supabase/migrations/20260820_auth_security_hardening.sql)
+   (roles de admin blindados server-side, rate limiting anti fuerza bruta y soporte de 2FA por
+   correo). Ver [`AUTH_SECURITY.md`](./AUTH_SECURITY.md) para el detalle completo y el contrato
+   que debe implementar n8n para el envío del código de 2FA.
 
 ## Configurar Google Analytics 4
 

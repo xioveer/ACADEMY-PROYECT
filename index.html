@@ -22,7 +22,7 @@
              Play, Square, RefreshCw, ChevronRight, BookOpen, Brain,
              Palette, Accessibility, Volume2, AlignLeft, X, Shield, History,
              LayoutGrid, EyeOff, GraduationCap, ArrowRight, ArrowLeft,
-             VolumeX } from
+             VolumeX, Settings, Key, User, ChevronDown } from
       'https://cdn.jsdelivr.net/npm/lucide@latest/dist/esm/lucide.js';
     window._lucide = { createIcons, icons: {
       Eye, Zap, Ear, FileText, Image, Upload, Mic, Copy, Download,
@@ -30,7 +30,7 @@
       RefreshCw, ChevronRight, BookOpen, Brain, Palette, Accessibility,
       Volume2, AlignLeft, X, Shield, History,
       LayoutGrid, EyeOff, GraduationCap, ArrowRight, ArrowLeft,
-      VolumeX
+      VolumeX, Settings, Key, User, ChevronDown
     }};
     document.addEventListener('DOMContentLoaded', () => {
       createIcons({ icons: window._lucide.icons });
@@ -65,6 +65,109 @@
       --shadow-lg:         0 8px 48px rgba(0,0,0,.15);
       --transition:        .2s cubic-bezier(.4,0,.2,1);
       --transition-slow:   .35s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── ONBOARDING DE ACCESIBILIDAD ─────────────────────── */
+    .onboarding-box { max-width: 960px; padding: clamp(1.5rem, 4vw, 2.75rem); }
+    .onboarding-heading { text-align: center; max-width: 700px; margin: 0 auto 1.6rem; }
+    .onboarding-heading .modal-subtitle { font-size: 1rem; line-height: 1.6; margin-bottom: 0; }
+    .accessibility-profile-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem;
+    }
+    .accessibility-profile-card {
+      min-height: 170px; text-align: left; padding: 1.2rem;
+      display: flex; flex-direction: column; gap: .65rem; align-items: flex-start;
+      border: 3px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface);
+      color: var(--color-text); cursor: pointer; font: inherit; transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+    }
+    .accessibility-profile-card:hover { transform: translateY(-3px); border-color: var(--color-primary); box-shadow: var(--shadow-md); }
+    .accessibility-profile-card:focus-visible, .onboarding-standard:focus-visible { outline: 4px solid #1D4ED8; outline-offset: 3px; }
+    .accessibility-profile-card[aria-pressed="true"] { border-color: var(--color-primary); background: var(--color-primary-xl); }
+    .accessibility-profile-icon { font-size: 1.65rem; line-height: 1; }
+    .accessibility-profile-card strong { font-family: var(--font-ui); font-size: 1.08rem; }
+    .accessibility-profile-card small { color: var(--color-muted); line-height: 1.45; font-size: .9rem; }
+    .onboarding-standard { display: flex; margin: 1.35rem auto 0; }
+
+    /* ── TEMA: BAJA VISIÓN ───────────────────────────────── */
+    body.theme-low-vision {
+      --color-bg: #0A0F1D; --color-surface: #111827; --color-border: #FDE047;
+      --color-primary: #FDE047; --color-primary-d: #FACC15; --color-primary-xl: #27230A;
+      --color-accent: #FDE047; --color-text: #FFFFFF; --color-muted: #E5E7EB;
+      --color-overlay: rgba(0,0,0,.82); font-size: 20px; line-height: 1.75; letter-spacing: .015em;
+    }
+    body.theme-low-vision .app-header, body.theme-low-vision .card, body.theme-low-vision .modal-box { border-color: #FDE047; }
+    body.theme-low-vision .btn-primary, body.theme-low-vision #process-btn, body.theme-low-vision #process-btn-baja-vision {
+      background: #FDE047; color: #0A0F1D; border-color: #FDE047; font-weight: 800;
+    }
+    body.theme-low-vision #process-btn, body.theme-low-vision #process-btn-baja-vision {
+      width: 100%; min-height: 76px; justify-content: center; font-size: 1.2em; border-width: 4px;
+      box-shadow: 0 0 0 4px #0A0F1D, 0 0 0 7px #FDE047;
+    }
+    body.theme-low-vision a { color: #FDE047; }
+    body.theme-low-vision input, body.theme-low-vision textarea { font-size: 1em; color: #FFFFFF; background: #0A0F1D; border-color: #FDE047; }
+    body.theme-low-vision .result-html-area { font-size: 1.15em; line-height: 1.9; background: #0A0F1D; color: #FFFFFF; border-color: #FDE047; }
+
+    /* ── TEMA: PERSONA SORDA ─────────────────────────────── */
+    body.theme-deaf { --color-primary: #1D4ED8; --color-primary-d: #1E40AF; --color-primary-xl: #DBEAFE; }
+    body.theme-deaf .audio-section, body.theme-deaf .audio-player-wrap { display: none !important; }
+    body.theme-deaf #toast { min-width: min(92vw, 560px); font-size: 1.05rem; border: 4px solid #FFFFFF; box-shadow: 0 0 0 4px #1D4ED8, var(--shadow-lg); }
+    .visual-alert-region { display: none; }
+    body.theme-deaf .visual-alert-region {
+      display: flex; position: sticky; z-index: 20; top: 0; width: min(100% - 2rem, 1100px); margin: 1rem auto 0;
+      padding: .8rem 1rem; gap: .6rem; border: 3px solid #1D4ED8; border-radius: var(--radius-sm);
+      background: #EFF6FF; color: #172554; font-weight: 800; box-shadow: var(--shadow-md);
+    }
+    body.theme-deaf .visual-alert-region::before { content: 'AVISO VISUAL'; letter-spacing: .06em; font-size: .8em; }
+
+    /* ── TEMA: NEURODIVERGENTE ───────────────────────────── */
+    body.theme-neurodivergent {
+      --color-bg: #F4F6F9; --color-surface: #FFFFFF; --color-border: #CBD5E1;
+      --color-primary: #4F46E5; --color-primary-d: #3730A3; --color-primary-xl: #EEF2FF;
+      --color-accent: #0F9F8C; --color-accent-xl: #ECFDF5; --color-text: #172033; --color-muted: #526075;
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      letter-spacing: .005em;
+    }
+    body.theme-neurodivergent .app-header { box-shadow: none; border-bottom: 2px solid #DCE3EE; }
+    body.theme-neurodivergent .distraction, body.theme-neurodivergent .header-search { display: none !important; }
+    body.theme-neurodivergent .view-shell { max-width: 760px; }
+    body.theme-neurodivergent .card { box-shadow: 0 2px 12px rgba(30, 41, 59, .06); }
+    body.theme-neurodivergent .view-sub { max-width: 54ch; }
+    body.theme-neurodivergent .result-html-area { background: #FFFFFF; border-left: 5px solid #4F46E5; line-height: 1.8; }
+    body.theme-neurodivergent .result-html-area p { max-width: 66ch; margin-bottom: 1.15em; }
+    body.theme-neurodivergent .result-html-area li { margin-bottom: .65em; padding-left: .2em; }
+    body.theme-neurodivergent .result-html-area strong { color: #3730A3; }
+    body.theme-neurodivergent .result-html-area h2,
+    body.theme-neurodivergent .result-html-area h3 { color: #312E81; font-size: 1.05em; margin-top: 1.25em; }
+    body.theme-neurodivergent .neuro-executive-summary {
+      background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: var(--radius-sm); padding: 1rem 1.1rem;
+    }
+    body.theme-neurodivergent .neuro-executive-summary::before {
+      content: 'RESUMEN EJECUTIVO'; display: block; margin-bottom: .45rem; color: #3730A3; font-size: .78em; font-weight: 800; letter-spacing: .08em;
+    }
+    .neuro-focus-control { display: none; }
+    body.theme-neurodivergent .neuro-focus-control { display: inline-flex; }
+    body.neuro-focus-mode { overflow: hidden; }
+    body.neuro-focus-mode::before { content: ''; position: fixed; z-index: 90; inset: 0; background: rgba(15, 23, 42, .68); }
+    body.neuro-focus-mode #result-html-tdah {
+      position: fixed; z-index: 91; inset: 6vh max(5vw, calc((100vw - 780px) / 2)); overflow: auto;
+      max-width: 780px; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem); border: none; border-radius: 18px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .35); font-size: 1.12rem; line-height: 1.9;
+    }
+    body.neuro-focus-mode #neuro-focus-btn { position: fixed; z-index: 92; top: 1.25rem; right: 1.25rem; background: #FFFFFF; }
+    body.neuro-focus-mode #view-tdah .audio-player-wrap,
+    body.neuro-focus-mode #view-tdah .result-actions { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      body.theme-neurodivergent *, body.theme-neurodivergent *::before, body.theme-neurodivergent *::after { animation: none !important; transition: none !important; }
+    }
+    @media (max-width: 640px) {
+      body.neuro-focus-mode #result-html-tdah { inset: 4.5rem 1rem 1rem; font-size: 1rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .accessibility-profile-card { transition: none; }
+      .accessibility-profile-card:hover { transform: none; }
     }
 
     /* ── PERFIL VISUAL ── */
@@ -325,6 +428,35 @@
       display: flex; gap: .4rem; align-items: flex-start;
     }
     .error-msg { color: var(--color-danger); font-size: .84rem; margin-top: .4rem; font-weight: 600; min-height: 1.2em; }
+
+    /* Menú flotante de perfil (Ajustes / Cerrar sesión) */
+    .user-menu-wrap { position: relative; }
+    .user-badge-btn {
+      display: flex; align-items: center; gap: .35rem;
+      padding: .3rem .5rem; border-radius: var(--radius-sm);
+      transition: background var(--transition);
+    }
+    .user-badge-btn:hover, .user-badge-btn[aria-expanded="true"] { background: var(--color-bg); }
+    .user-menu {
+      position: absolute; right: 0; top: calc(100% + 6px);
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+      min-width: 190px; padding: .4rem; z-index: 60;
+    }
+    .user-menu.hidden { display: none; }
+    .user-menu-item {
+      display: flex; align-items: center; gap: .55rem; width: 100%;
+      padding: .55rem .7rem; border-radius: var(--radius-xs);
+      font-size: .87rem; font-weight: 600; color: var(--color-text);
+      font-family: var(--font-ui); text-align: left;
+    }
+    .user-menu-item:hover { background: var(--color-bg); }
+
+    /* Ajustes: pill de estado (2FA) */
+    .settings-pill {
+      display: inline-block; padding: .2rem .7rem; border-radius: 999px;
+      font-size: .78rem; font-weight: 700; font-family: var(--font-ui);
+    }
 
     /* Botón "Continuar con Google" + separador */
     .btn-google {
@@ -993,7 +1125,7 @@
 
       <div class="demo-note" id="auth-demo-note" role="note">
         <i data-lucide="alert-circle" style="width:15px;height:15px;flex-shrink:0;margin-top:1px"></i>
-        <span><strong>Demo:</strong> cualquier email + contraseña (mín. 6 caracteres) funciona. Configurá Supabase para autenticación real (ver README).</span>
+        <span><strong>Demo:</strong> cualquier email + contraseña que cumpla la política de seguridad funciona. Configurá Supabase para autenticación real (ver README).</span>
       </div>
 
       <button type="button" class="btn btn-google" style="width:100%;justify-content:center" onclick="doGoogleAuth()" aria-label="Continuar con Google">
@@ -1011,11 +1143,11 @@
       <div id="panel-login" class="tab-panel active" role="tabpanel" aria-labelledby="tab-login">
         <div class="form-group">
           <label for="login-email">Correo (institucional o personal)</label>
-          <input type="email" id="login-email" placeholder="tu@correo.com" autocomplete="email" inputmode="email" />
+          <input type="email" id="login-email" placeholder="ejemplo@correo.com" autocomplete="email" inputmode="email" />
         </div>
         <div class="form-group">
           <label for="login-pass">Contraseña</label>
-          <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" />
+          <input type="password" id="login-pass" placeholder="Tu contraseña" autocomplete="current-password" />
         </div>
         <div id="login-error" class="error-msg" role="alert" aria-live="polite"></div>
         <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:.6rem" onclick="doLogin()">
@@ -1033,11 +1165,14 @@
         </div>
         <div class="form-group">
           <label for="reg-email">Correo (institucional o personal)</label>
-          <input type="email" id="reg-email" placeholder="tu@correo.com" autocomplete="email" inputmode="email" />
+          <input type="email" id="reg-email" placeholder="ejemplo@correo.com" autocomplete="email" inputmode="email" />
         </div>
         <div class="form-group">
           <label for="reg-pass">Contraseña</label>
-          <input type="password" id="reg-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+          <input type="password" id="reg-pass" placeholder="Mínimo 8 caracteres (Ej: Abc$1234)" autocomplete="new-password" />
+          <small style="display:block;color:var(--color-muted);font-size:.78rem;margin-top:.3rem">
+            Mínimo 8 caracteres, con al menos una mayúscula, un número y un carácter especial.
+          </small>
         </div>
         <div id="reg-error" class="error-msg" role="alert" aria-live="polite"></div>
         <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:.6rem" onclick="doRegister()">
@@ -1046,6 +1181,58 @@
         </button>
         <p class="modal-footer">¿Ya tenés cuenta? <a href="#" onclick="switchTab('login');return false">Iniciar sesión</a></p>
       </div>
+
+      <!-- 2FA (solo logins admin, ver AUTH_SECURITY.md) -->
+      <div id="panel-2fa" class="tab-panel" role="tabpanel" aria-label="Verificación en dos pasos">
+        <p class="modal-subtitle" style="margin-bottom:.9rem">
+          Te enviamos un código de 6 dígitos a <strong id="twofa-email-hint"></strong>. Ingresalo para continuar.
+        </p>
+        <div class="form-group">
+          <label for="twofa-code">Código de verificación</label>
+          <input type="text" id="twofa-code" placeholder="000000" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" />
+        </div>
+        <div id="twofa-error" class="error-msg" role="alert" aria-live="polite"></div>
+        <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:.6rem" onclick="doVerifyTwoFactor()">
+          Verificar
+          <i data-lucide="chevron-right" style="width:16px;height:16px"></i>
+        </button>
+        <p class="modal-footer">
+          <a href="#" onclick="doResendTwoFactor();return false">Reenviar código</a>
+          ·
+          <a href="#" onclick="doCancelTwoFactor();return false">Cancelar</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       ONBOARDING: PERFIL DE ACCESIBILIDAD (tras iniciar sesión)
+  ══════════════════════════════════════════════════════ -->
+  <div id="accessibility-onboarding" class="modal-overlay hidden" role="dialog" aria-modal="true"
+    aria-labelledby="accessibility-onboarding-title" aria-describedby="accessibility-onboarding-description">
+    <div class="modal-box onboarding-box">
+      <div class="onboarding-heading">
+        <h1 class="modal-title" id="accessibility-onboarding-title">¡Bienvenido a EduInclusiva AI!</h1>
+        <p class="modal-subtitle" id="accessibility-onboarding-description">Selecciona tu perfil de accesibilidad para personalizar tu experiencia desde el primer segundo.</p>
+      </div>
+      <div class="accessibility-profile-grid" aria-label="Perfiles de accesibilidad">
+        <button type="button" class="accessibility-profile-card" data-accessibility-profile="low-vision" aria-pressed="false" onclick="chooseAccessibilityProfile('low-vision')">
+          <span class="accessibility-profile-icon" aria-hidden="true">◐</span><strong>Baja Visión</strong><small>Alto contraste, texto grande y controles de gran tamaño.</small>
+        </button>
+        <button type="button" class="accessibility-profile-card" data-accessibility-profile="dyslexia" aria-pressed="false" onclick="chooseAccessibilityProfile('dyslexia')">
+          <span class="accessibility-profile-icon" aria-hidden="true">Aa</span><strong>Lector con Dislexia</strong><small>Espaciado ampliado y una experiencia de lectura más clara.</small>
+        </button>
+        <button type="button" class="accessibility-profile-card" data-accessibility-profile="neuro" aria-pressed="false" onclick="chooseAccessibilityProfile('neuro')">
+          <span class="accessibility-profile-icon" aria-hidden="true"><i data-lucide="brain" style="width:28px;height:28px"></i></span><strong>Neurodivergente</strong><small>Optimizado para TDAH y fatiga cognitiva: resúmenes ejecutivos, viñetas claras y cero distracciones.</small>
+        </button>
+        <button type="button" class="accessibility-profile-card" data-accessibility-profile="blind" aria-pressed="false" onclick="chooseAccessibilityProfile('blind')">
+          <span class="accessibility-profile-icon" aria-hidden="true">◉</span><strong>Usuario Ciego</strong><small>Navegación por teclado y apoyo de lector de pantalla y voz.</small>
+        </button>
+        <button type="button" class="accessibility-profile-card" data-accessibility-profile="deaf" aria-pressed="false" onclick="chooseAccessibilityProfile('deaf')">
+          <span class="accessibility-profile-icon" aria-hidden="true">▣</span><strong>Persona Sorda</strong><small>Alertas visuales, contenido textual y prioridad para subtítulos.</small>
+        </button>
+      </div>
+      <button type="button" class="btn btn-ghost onboarding-standard" data-accessibility-profile="standard" aria-pressed="false" onclick="chooseAccessibilityProfile('standard')">Continuar con perfil Estándar</button>
     </div>
   </div>
 
@@ -1161,8 +1348,22 @@
         <i data-lucide="history" style="width:14px;height:14px"></i>
         <span class="distraction">Historial</span>
       </button>
-      <div class="header-actions distraction">
-        <div class="user-badge" id="user-badge" aria-live="polite"></div>
+      <div class="header-actions">
+        <div class="user-menu-wrap" id="user-menu-wrap">
+          <button type="button" class="user-badge-btn" id="user-menu-toggle"
+            onclick="toggleUserMenu()" aria-haspopup="true" aria-expanded="false" aria-label="Menú de cuenta">
+            <span class="user-badge" id="user-badge" aria-live="polite"></span>
+            <i data-lucide="chevron-down" style="width:12px;height:12px" aria-hidden="true"></i>
+          </button>
+          <div class="user-menu hidden" id="user-menu" role="menu" aria-label="Menú de cuenta">
+            <button type="button" role="menuitem" class="user-menu-item" onclick="toggleUserMenu();navigateTo('ajustes')">
+              <i data-lucide="settings" style="width:14px;height:14px"></i> Ajustes
+            </button>
+            <button type="button" role="menuitem" class="user-menu-item" onclick="doLogout()">
+              <i data-lucide="log-out" style="width:14px;height:14px"></i> Cerrar sesión
+            </button>
+          </div>
+        </div>
         <button class="btn btn-ghost btn-sm" id="avatar-upload-btn" style="display:none"
           onclick="triggerAvatarUpload()" aria-label="Cambiar foto de perfil (Supabase Storage)">
           <i data-lucide="image" style="width:14px;height:14px"></i>
@@ -1442,7 +1643,7 @@
 
           <div class="submit-row">
             <button class="btn btn-primary btn-lg" id="process-btn-baja-vision" onclick="processContent()" style="width:100%;justify-content:center">
-              <i data-lucide="refresh-cw" style="width:20px;height:20px"></i> Adaptar contenido
+              <i data-lucide="refresh-cw" style="width:20px;height:20px"></i> Procesar contenido
             </button>
           </div>
           <div class="progress-wrap" id="progress-wrap-baja-vision" role="status" aria-live="polite">
@@ -1491,8 +1692,8 @@
         </button>
       </div>
       <div class="view-shell">
-        <h1 class="view-heading">⚡ TDAH / Neurodivergencia</h1>
-        <p class="view-sub">Un paso a la vez. Sin distracciones.</p>
+        <h1 class="view-heading">Neurodivergente</h1>
+        <p class="view-sub">Un paso a la vez, con estructura clara y sin distracciones.</p>
 
         <div class="tdah-progress-wrap">
           <div class="tdah-progress-bar-bg"><div class="tdah-progress-bar-fill" id="tdah-progress-fill"></div></div>
@@ -1536,8 +1737,8 @@
         <div class="tdah-step card" id="tdah-step-2">
           <h3 class="card-title"><span class="card-step">2</span> Confirmar</h3>
           <div class="tdah-confirm-box">
-            Vamos a adaptar el contenido con el perfil <strong>TDAH</strong>: enfoque, resúmenes cortos y
-            viñetas. Presioná "Procesar" cuando estés list@.
+            Vamos a adaptar el contenido para priorizar un <strong>resumen ejecutivo</strong>, pasos breves,
+            palabras clave destacadas y viñetas claras. Presioná "Procesar" cuando estés list@.
           </div>
           <div class="tdah-step-actions">
             <button class="btn btn-ghost" onclick="prevTdahStep()">
@@ -1562,8 +1763,8 @@
           <section class="result-area" id="result-section-tdah">
             <div class="result-html-area" id="result-html-tdah" aria-live="polite"></div>
             <div class="audio-player-wrap">
-              <button class="btn btn-primary" onclick="speakResult()" id="tts-play-btn-tdah" aria-label="Escuchar">
-                <i data-lucide="play" style="width:14px;height:14px"></i> Escuchar
+              <button class="btn btn-primary" onclick="speakResult()" id="tts-play-btn-tdah" aria-label="Escuchar el audio del resultado">
+                <i data-lucide="play" style="width:14px;height:14px"></i> Escuchar audio
               </button>
               <button class="btn btn-ghost btn-sm" onclick="stopSpeech()" aria-label="Detener">
                 <i data-lucide="square" style="width:13px;height:13px"></i> Detener
@@ -1574,8 +1775,11 @@
               </div>
             </div>
             <div class="result-actions">
-              <button class="btn btn-primary btn-sm" onclick="copyResult()"><i data-lucide="copy" style="width:13px;height:13px"></i> Copiar</button>
+              <button class="btn btn-primary btn-sm" onclick="copyResult()"><i data-lucide="copy" style="width:13px;height:13px"></i> Copiar resumen</button>
               <button class="btn btn-ghost btn-sm" onclick="downloadTxt()"><i data-lucide="download" style="width:13px;height:13px"></i> Descargar .txt</button>
+              <button class="btn btn-ghost btn-sm neuro-focus-control" id="neuro-focus-btn" onclick="toggleNeuroFocus()" aria-pressed="false">
+                <i data-lucide="book-open" style="width:13px;height:13px"></i> Enfoque / Lectura limpia
+              </button>
             </div>
             <pre id="result-raw-tdah" style="display:none"></pre>
           </section>
@@ -1902,7 +2106,96 @@
     </footer>
     </section>
     <!-- /view-docente -->
+
+    <!-- ══════════════════════════════════════════════════════
+         VISTA: AJUSTES
+    ══════════════════════════════════════════════════════ -->
+    <section id="view-ajustes" class="view" aria-label="Ajustes y configuración">
+      <div class="container">
+        <h2 class="page-title">Ajustes y configuración</h2>
+        <p class="page-sub">Tu cuenta, tus preferencias de accesibilidad y el estado de seguridad de tu sesión.</p>
+
+        <!-- Cuenta y credenciales -->
+        <section class="card" aria-labelledby="settings-account-title">
+          <h3 class="card-title" id="settings-account-title">
+            <i data-lucide="user" style="width:16px;height:16px;color:var(--color-primary)"></i>
+            Cuenta y credenciales
+          </h3>
+
+          <div class="form-group">
+            <label id="settings-email-label">Correo electrónico</label>
+            <p id="settings-email" aria-labelledby="settings-email-label" style="font-weight:600">—</p>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-pass-current">Contraseña actual</label>
+            <input type="password" id="settings-pass-current" placeholder="Tu contraseña actual" autocomplete="current-password" />
+          </div>
+          <div class="form-group">
+            <label for="settings-pass-new">Contraseña nueva</label>
+            <input type="password" id="settings-pass-new" placeholder="Mínimo 8 caracteres (Ej: Abc$1234)" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label for="settings-pass-confirm">Confirmar contraseña nueva</label>
+            <input type="password" id="settings-pass-confirm" placeholder="Repetí la contraseña nueva" autocomplete="new-password" />
+          </div>
+          <small style="display:block;color:var(--color-muted);font-size:.78rem;margin:-.4rem 0 .9rem">
+            Mínimo 8 caracteres, con al menos una mayúscula, un número y un carácter especial. Si iniciaste sesión con Google,
+            es posible que tu cuenta no tenga una contraseña propia configurada.
+          </small>
+          <div id="settings-pass-error" class="error-msg" role="alert" aria-live="polite"></div>
+          <p id="settings-pass-success" style="color:var(--color-accent);font-size:.84rem;font-weight:600;min-height:1.2em" role="status" aria-live="polite"></p>
+          <button type="button" class="btn btn-primary" onclick="doUpdatePassword()">
+            <i data-lucide="key" style="width:14px;height:14px"></i>
+            Actualizar contraseña
+          </button>
+        </section>
+
+        <!-- Preferencias de accesibilidad -->
+        <section class="card" aria-labelledby="settings-a11y-title">
+          <h3 class="card-title" id="settings-a11y-title">
+            <i data-lucide="accessibility" style="width:16px;height:16px;color:var(--color-primary)"></i>
+            Preferencias de accesibilidad
+          </h3>
+          <div class="form-group">
+            <label for="settings-profile-select">Perfil por defecto al iniciar sesión</label>
+            <select id="settings-profile-select" onchange="doUpdateDefaultProfile()">
+              <option value="standard">Estándar</option>
+              <option value="low-vision">Baja Visión</option>
+              <option value="dyslexia">DEA (dificultades específicas de aprendizaje / dislexia)</option>
+              <option value="neuro">Neurodivergente (TDAH)</option>
+              <option value="blind">Usuario Ciego</option>
+            </select>
+          </div>
+          <p style="color:var(--color-muted);font-size:.84rem">
+            Se guarda en este navegador y, si tenés Supabase configurado, también en tu cuenta — así te acompaña entre dispositivos.
+          </p>
+        </section>
+
+        <!-- Seguridad / 2FA -->
+        <section class="card" aria-labelledby="settings-security-title">
+          <h3 class="card-title" id="settings-security-title">
+            <i data-lucide="shield" style="width:16px;height:16px;color:var(--color-primary)"></i>
+            Seguridad
+          </h3>
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;flex-wrap:wrap">
+            <span>Verificación en dos pasos (2FA) por correo</span>
+            <span id="settings-2fa-pill" class="settings-pill">—</span>
+          </div>
+          <p id="settings-2fa-desc" style="color:var(--color-muted);font-size:.84rem"></p>
+        </section>
+
+        <button type="button" class="btn btn-ghost" style="margin-top:.5rem" onclick="doLogout()">
+          <i data-lucide="log-out" style="width:14px;height:14px"></i>
+          Cerrar sesión
+        </button>
+      </div>
+    </section>
+    <!-- /view-ajustes -->
   </main>
+
+  <!-- Canal persistente de avisos visuales: prioritario para el perfil Persona Sorda. -->
+  <div id="visual-alert-region" class="visual-alert-region" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <!-- TOAST -->
   <div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>

@@ -1,4 +1,8 @@
-  import { getCurrentUser, onAuthStateChange, signInWithPassword, signUp, signInWithGoogle, signOut } from './lib/auth.js';
+  import {
+    getCurrentUser, onAuthStateChange, signInWithPassword, signUp, signInWithGoogle, signOut,
+    validatePasswordPolicy, requiresTwoFactor, requestTwoFactorCode, verifyTwoFactorCode,
+    updatePassword,
+  } from './lib/auth.js';
   import { isSupabaseConfigured, supabase } from './lib/supabaseClient.js';
   import * as db from './lib/db.js';
   import { uploadOriginalFile, uploadAvatar } from './lib/storage.js';
@@ -17,6 +21,7 @@
   }
 
   const CONSENT_KEY  = 'edu_consent_v1';
+  const ACCESSIBILITY_ONBOARDING_KEY = 'edu_accessibility_profile_v1';
   const HISTORY_MAX  = 30;   // tope de entradas mostradas/guardadas (ver también src/lib/db.js)
   const IMAGE_TYPES  = ['image/jpeg', 'image/png', 'image/webp'];
   const UPLOAD_TIMEOUT_MS    = 120000;         // tope para el envío inicial (archivos grandes en conexión lenta)
@@ -98,6 +103,7 @@
     tdahStep: 1,
     currentUser: null,  // { id?, email, name, avatarUrl? } — id solo existe con sesión Supabase real
     historyCache: [],   // último historial cargado (Supabase o localStorage), usado por el buscador
+    pendingTwoFactorUser: null, // usuario ya autenticado (email+pass) esperando código 2FA antes de abrir la app
   };
 
   /* ══════════════════════════════════════════════
@@ -105,6 +111,7 @@
      si está configurado; localStorage demo si no)
   ══════════════════════════════════════════════ */
   function switchTab(t) {
+    hideTwoFactorPanel();
     ['login','register'].forEach(id => {
       const active = id === t;
       document.getElementById('tab-' + id).classList.toggle('active', active);
@@ -122,7 +129,67 @@
     err.textContent = '';
     const { user, error } = await signInWithPassword(email, pass);
     if (error) { err.textContent = error; return; }
+
+    if (requiresTwoFactor(user)) {
+      S.pendingTwoFactorUser = user;
+      const { error: sendError } = await requestTwoFactorCode(user.email);
+      if (sendError) { err.textContent = sendError; S.pendingTwoFactorUser = null; return; }
+      showTwoFactorPanel(user.email);
+      return;
+    }
     await onSignedIn(user, 'password');
+  }
+
+  /* ── 2FA (login admin) ── */
+  function showTwoFactorPanel(email) {
+    document.querySelector('#auth-modal .modal-tabs').style.display = 'none';
+    document.querySelector('#auth-modal .btn-google').style.display = 'none';
+    document.querySelector('#auth-modal .auth-divider').style.display = 'none';
+    document.getElementById('panel-login').classList.remove('active');
+    document.getElementById('panel-register').classList.remove('active');
+    document.getElementById('twofa-email-hint').textContent = email;
+    document.getElementById('twofa-code').value = '';
+    document.getElementById('twofa-error').textContent = '';
+    document.getElementById('panel-2fa').classList.add('active');
+    document.getElementById('twofa-code').focus();
+  }
+
+  function hideTwoFactorPanel() {
+    S.pendingTwoFactorUser = null;
+    document.querySelector('#auth-modal .modal-tabs').style.display = '';
+    document.querySelector('#auth-modal .btn-google').style.display = '';
+    document.querySelector('#auth-modal .auth-divider').style.display = '';
+    document.getElementById('panel-2fa').classList.remove('active');
+  }
+
+  async function doVerifyTwoFactor() {
+    const code = document.getElementById('twofa-code').value.trim();
+    const err  = document.getElementById('twofa-error');
+    err.textContent = '';
+    if (!S.pendingTwoFactorUser) { hideTwoFactorPanel(); switchTab('login'); return; }
+    if (!/^\d{6}$/.test(code)) { err.textContent = 'Ingresá los 6 dígitos del código.'; return; }
+
+    const { success, error } = await verifyTwoFactorCode(S.pendingTwoFactorUser.email, code);
+    if (!success) { err.textContent = error; return; }
+
+    const user = S.pendingTwoFactorUser;
+    S.pendingTwoFactorUser = null;
+    document.getElementById('panel-2fa').classList.remove('active');
+    await onSignedIn(user, 'password+2fa');
+  }
+
+  async function doResendTwoFactor() {
+    if (!S.pendingTwoFactorUser) return;
+    const err = document.getElementById('twofa-error');
+    err.textContent = '';
+    const { error } = await requestTwoFactorCode(S.pendingTwoFactorUser.email);
+    if (error) { err.textContent = error; return; }
+    showToast('Te reenviamos el código por correo 📩');
+  }
+
+  function doCancelTwoFactor() {
+    hideTwoFactorPanel();
+    switchTab('login');
   }
 
   async function doRegister() {
@@ -157,15 +224,26 @@
   }
 
   async function doLogout() {
-    await signOut();
+    closeUserMenu();
+    await signOut(); // supabase.auth.signOut() en modo real; limpia la sesión demo en memoria si no
+    // Logout defensivo: sessionStorage.clear() cubre cualquier resto de sesión
+    // (Supabase guarda ahí el token, ver lib/supabaseClient.js) — importante en
+    // equipos compartidos, no solo confiar en signOut() del SDK.
+    try { window.sessionStorage.clear(); } catch {}
     resetToLoggedOutUi();
   }
 
   function resetToLoggedOutUi() {
     S.currentUser = null;
     S.historyCache = [];
+    S.pendingTwoFactorUser = null;
+    S.file = null; S.fileType = null; S.fileBase64 = null; S.fileMime = null;
+    S.extractedText = '';
+    S.resultText = '';
+    S.adaptations = new Set();
     document.getElementById('app-main').classList.remove('visible');
     document.getElementById('auth-modal').classList.remove('hidden');
+    document.getElementById('accessibility-onboarding')?.classList.add('hidden');
     document.getElementById('logout-btn').style.display = 'none';
     document.getElementById('user-badge').innerHTML = '';
     document.getElementById('avatar-upload-btn').style.display = 'none';
@@ -173,14 +251,36 @@
     document.getElementById('login-pass').value = '';
     clearAll();
     stopSpeech();
-    window.history.replaceState(null, '', location.pathname + location.search); // limpia el hash de ruta
+    document.body.classList.remove(...Object.values(ONBOARDING_PROFILES).map(item => item.theme));
+    // Vuelve a la pantalla de login sin recarga completa: limpia el hash de ruta
+    // (deja la URL en index.html "limpio") y el modal de auth ya quedó visible arriba.
+    window.history.replaceState(null, '', location.pathname + location.search);
   }
+
+  /* ── Menú flotante de perfil (Ajustes / Cerrar sesión) ── */
+  function toggleUserMenu() {
+    const menu = document.getElementById('user-menu');
+    const btn = document.getElementById('user-menu-toggle');
+    if (!menu || !btn) return;
+    const willOpen = menu.classList.contains('hidden');
+    menu.classList.toggle('hidden', !willOpen);
+    btn.setAttribute('aria-expanded', String(willOpen));
+  }
+
+  function closeUserMenu() {
+    document.getElementById('user-menu')?.classList.add('hidden');
+    document.getElementById('user-menu-toggle')?.setAttribute('aria-expanded', 'false');
+  }
+
+  document.addEventListener('click', e => {
+    const wrap = document.getElementById('user-menu-wrap');
+    if (wrap && !wrap.contains(e.target)) closeUserMenu();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeUserMenu(); });
 
   async function showApp(user) {
     S.currentUser = user;
     document.getElementById('auth-modal').classList.add('hidden');
-    document.getElementById('app-main').classList.add('visible');
-    document.getElementById('logout-btn').style.display = 'inline-flex';
     const demoNote = document.getElementById('auth-demo-note');
     if (demoNote) demoNote.style.display = isSupabaseConfigured ? 'none' : 'flex';
 
@@ -196,7 +296,68 @@
     if (prefs?.adaptations?.length) S.adaptations = new Set(prefs.adaptations);
     S.historyCache = history;
 
-    navigateTo(currentRoute() || 'lobby');
+    // El perfil se elige explícitamente después de cada inicio de sesión. La
+    // selección se recuerda para preseleccionarla, pero no se da por sentada.
+    openAccessibilityOnboarding();
+  }
+
+  const ONBOARDING_PROFILES = {
+    'low-vision': { theme: 'theme-low-vision', route: 'baja-vision', profile: 'visual', adaptations: ['baja_vision', 'ceguera'] },
+    dyslexia:     { theme: 'theme-dyslexia', route: 'docente', profile: 'dislexia', adaptations: ['dislexia'] },
+    neuro:        { theme: 'theme-neurodivergent', route: 'tdah', profile: 'tdah', adaptations: ['tdah'] },
+    blind:        { theme: 'theme-blind', route: 'ceguera', profile: 'visual', adaptations: ['ceguera'] },
+    deaf:         { theme: 'theme-deaf', route: 'auditivo', profile: 'auditivo', adaptations: ['auditiva'] },
+    standard:     { theme: 'theme-standard', route: 'docente', profile: 'tdah', adaptations: [] },
+  };
+
+  function setAccessibilityTheme(profileKey) {
+    const option = ONBOARDING_PROFILES[profileKey] || ONBOARDING_PROFILES.standard;
+    document.body.classList.remove(...Object.values(ONBOARDING_PROFILES).map(item => item.theme));
+    document.body.classList.add(option.theme);
+    document.body.dataset.accessibilityProfile = profileKey;
+  }
+
+  function openAccessibilityOnboarding() {
+    const modal = document.getElementById('accessibility-onboarding');
+    modal?.classList.remove('hidden');
+    document.getElementById('app-main').classList.remove('visible');
+    document.getElementById('logout-btn').style.display = 'inline-flex';
+    const saved = localStorage.getItem(ACCESSIBILITY_ONBOARDING_KEY);
+    modal?.querySelectorAll('[data-accessibility-profile]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.accessibilityProfile === saved));
+    });
+    requestAnimationFrame(() => modal?.querySelector('[data-accessibility-profile]')?.focus());
+  }
+
+  /* Persiste el perfil de accesibilidad (localStorage + Supabase si hay
+     sesión real) y aplica su tema — sin decidir qué hacer con la UI
+     alrededor (eso lo definen los dos callers de abajo). */
+  function persistAccessibilityProfile(profileKey) {
+    const option = ONBOARDING_PROFILES[profileKey] || ONBOARDING_PROFILES.standard;
+    localStorage.setItem(ACCESSIBILITY_ONBOARDING_KEY, profileKey);
+    setAccessibilityTheme(profileKey);
+    S.profile = option.profile;
+    S.adaptations = new Set(option.adaptations);
+    db.savePreferences(S.currentUser?.id, S.profile, Array.from(S.adaptations));
+    return option;
+  }
+
+  function chooseAccessibilityProfile(profileKey) {
+    const option = persistAccessibilityProfile(profileKey);
+    document.getElementById('accessibility-onboarding')?.classList.add('hidden');
+    document.getElementById('app-main').classList.add('visible');
+    navigateTo(option.route);
+    showToast('Perfil de accesibilidad configurado', 'ok');
+  }
+
+  /* Cambio de perfil por defecto desde Ajustes: solo persiste + aplica el
+     tema, sin navegar ni tocar el modal de onboarding (a diferencia de
+     chooseAccessibilityProfile, que se usa en el flujo de bienvenida). */
+  function doUpdateDefaultProfile() {
+    const select = document.getElementById('settings-profile-select');
+    if (!select) return;
+    persistAccessibilityProfile(select.value);
+    showToast('Preferencia de accesibilidad guardada ✅');
   }
 
   function renderUserBadge(user) {
@@ -208,6 +369,81 @@
          <span>${escHtml(rawName)}</span>`
       : `<div class="user-avatar" aria-hidden="true">${initials}</div>
          <span>${escHtml(rawName)}</span>`;
+  }
+
+  /* ══════════════════════════════════════════════
+     AJUSTES — cuenta/credenciales, preferencias de
+     accesibilidad y estado del 2FA (ver AUTH_SECURITY.md)
+  ══════════════════════════════════════════════ */
+  function renderSettingsView() {
+    if (!S.currentUser) return;
+
+    const emailEl = document.getElementById('settings-email');
+    if (emailEl) emailEl.textContent = S.currentUser.email || '—';
+
+    const select = document.getElementById('settings-profile-select');
+    if (select) select.value = localStorage.getItem(ACCESSIBILITY_ONBOARDING_KEY) || 'standard';
+
+    ['settings-pass-current', 'settings-pass-new', 'settings-pass-confirm'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const err = document.getElementById('settings-pass-error');
+    const ok  = document.getElementById('settings-pass-success');
+    if (err) err.textContent = '';
+    if (ok)  ok.textContent = '';
+
+    render2FAStatus();
+  }
+
+  function render2FAStatus() {
+    const pill = document.getElementById('settings-2fa-pill');
+    const desc = document.getElementById('settings-2fa-desc');
+    if (!pill || !desc) return;
+
+    if (!isSupabaseConfigured) {
+      pill.textContent = 'No disponible';
+      pill.style.color = 'var(--color-muted)';
+      pill.style.background = 'color-mix(in srgb, var(--color-muted) 16%, transparent)';
+      desc.textContent = 'El 2FA por correo requiere Supabase configurado — no está disponible en modo demo.';
+      return;
+    }
+
+    if (S.currentUser?.role === 'admin') {
+      pill.textContent = 'Activo';
+      pill.style.color = 'var(--color-accent)';
+      pill.style.background = 'color-mix(in srgb, var(--color-accent) 16%, transparent)';
+      desc.textContent = 'Tu cuenta es admin: en cada inicio de sesión te vamos a pedir un código de 6 dígitos enviado por correo antes de abrir la app.';
+    } else {
+      pill.textContent = 'No aplica';
+      pill.style.color = 'var(--color-muted)';
+      pill.style.background = 'color-mix(in srgb, var(--color-muted) 16%, transparent)';
+      desc.textContent = 'Hoy el 2FA por correo solo se exige a cuentas admin. Tu cuenta no lo necesita.';
+    }
+  }
+
+  async function doUpdatePassword() {
+    const current = document.getElementById('settings-pass-current').value;
+    const next    = document.getElementById('settings-pass-new').value;
+    const confirm = document.getElementById('settings-pass-confirm').value;
+    const err = document.getElementById('settings-pass-error');
+    const ok  = document.getElementById('settings-pass-success');
+    err.textContent = '';
+    ok.textContent = '';
+
+    if (!current || !next || !confirm) { err.textContent = 'Completá todos los campos.'; return; }
+    const policyError = validatePasswordPolicy(next);
+    if (policyError) { err.textContent = policyError; return; }
+    if (next !== confirm) { err.textContent = 'Las contraseñas nuevas no coinciden.'; return; }
+
+    const { error } = await updatePassword(current, next);
+    if (error) { err.textContent = error; return; }
+
+    document.getElementById('settings-pass-current').value = '';
+    document.getElementById('settings-pass-new').value = '';
+    document.getElementById('settings-pass-confirm').value = '';
+    ok.textContent = 'Contraseña actualizada ✅';
+    trackEvent('password_update', {});
   }
 
   /* ══════════════════════════════════════════════
@@ -233,7 +469,7 @@
   /* ══════════════════════════════════════════════
      ROUTER — Lobby + 5 interfaces especializadas
   ══════════════════════════════════════════════ */
-  const ROUTES = ['lobby', 'ceguera', 'auditivo', 'baja-vision', 'tdah', 'docente'];
+  const ROUTES = ['lobby', 'ceguera', 'auditivo', 'baja-vision', 'tdah', 'docente', 'ajustes'];
 
   function currentRoute() {
     const r = (location.hash || '').replace(/^#\/?/, '');
@@ -257,6 +493,8 @@
 
   function renderRoute() {
     const route = currentRoute() || 'lobby';
+    if (route === 'ajustes' && !S.currentUser) { navigateTo('lobby'); return; }
+    if (route !== 'tdah') document.body.classList.remove('neuro-focus-mode');
     const prevRoute = document.querySelector('.view.active')?.id.replace('view-', '');
     if (prevRoute === 'ceguera' && route !== 'ceguera') stopSpeech();
 
@@ -268,10 +506,11 @@
     if (route === 'docente') {
       const checked = document.querySelector('input[name="adaptation-profile"]:checked');
       applyProfile(checked ? checked.value : S.profile);
-    } else {
+    } else if (route !== 'ajustes') {
       forceProfile(route);
     }
 
+    if (route === 'ajustes') renderSettingsView();
     if (route === 'tdah') goToTdahStep(1);
     if (route === 'ceguera' && prevRoute !== 'ceguera') {
       speak('Perfil ceguera y audio navegación activado. Escribí o pegá el contenido, o subí un archivo, y presioná procesar y escuchar.');
@@ -1211,6 +1450,7 @@
     } else {
       container.innerHTML = plainToHtml(content);
     }
+    enhanceNeurodivergentResult(container);
 
     S.resultText = container.innerText || container.textContent || content;
     saveToHistory(container.innerHTML, uploadPromise);
@@ -1229,6 +1469,24 @@
     document.getElementById('auditivo-step-processing')?.classList.remove('is-active');
     document.getElementById('auditivo-step-processing')?.classList.add('is-done');
     document.getElementById('auditivo-step-done')?.classList.add('is-active');
+  }
+
+  /* Añade una jerarquía visual mínima sin alterar el contenido enviado por la IA.
+     El backend recibe profile=tdah; esta capa garantiza que la lectura en pantalla
+     empiece con un bloque breve y reconocible para reducir la carga cognitiva. */
+  function enhanceNeurodivergentResult(container) {
+    if (!document.body.classList.contains('theme-neurodivergent')) return;
+    container.classList.add('neuro-result');
+    const firstParagraph = container.querySelector('p');
+    const existingSummary = container.querySelector('.neuro-executive-summary');
+    if (firstParagraph && !existingSummary) firstParagraph.classList.add('neuro-executive-summary');
+    container.querySelectorAll('ol').forEach(list => {
+      if (!list.previousElementSibling?.matches('h2,h3')) {
+        const heading = document.createElement('h3');
+        heading.textContent = 'Pasos clave';
+        list.before(heading);
+      }
+    });
   }
 
   /* Sanitizador ligero — lista blanca de etiquetas seguras */
@@ -1515,7 +1773,19 @@
     btn.setAttribute('aria-pressed', String(on));
     showToast(on ? 'Modo lectura activado' : 'Modo lectura desactivado');
   }
+  function toggleNeuroFocus() {
+    const on = document.body.classList.toggle('neuro-focus-mode');
+    const btn = document.getElementById('neuro-focus-btn');
+    btn?.setAttribute('aria-pressed', String(on));
+    if (btn) btn.innerHTML = on
+      ? '<i data-lucide="x" style="width:13px;height:13px"></i> Salir de lectura limpia'
+      : '<i data-lucide="book-open" style="width:13px;height:13px"></i> Enfoque / Lectura limpia';
+    if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    showToast(on ? 'Lectura limpia activada' : 'Lectura limpia desactivada');
+  }
   function clearAll() {
+    document.body.classList.remove('neuro-focus-mode');
+    document.getElementById('neuro-focus-btn')?.setAttribute('aria-pressed', 'false');
     if (S.pollAbort) {
       S.pollAbort.cancelled = true;
       if (S.pollAbort.xhr) { try { S.pollAbort.xhr.abort(); } catch { /* ya finalizado */ } }
@@ -1545,6 +1815,11 @@
     t.innerHTML = `<span>${icon}</span><span>${escHtml(String(msg))}</span>`;
     t.style.background = type === 'error' ? '#DC2626' : type === 'warn' ? '#D97706' : 'var(--color-text)';
     t.classList.add('show');
+    const visualAlert = document.getElementById('visual-alert-region');
+    if (visualAlert) {
+      visualAlert.textContent = msg;
+      visualAlert.dataset.type = type;
+    }
     clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => t.classList.remove('show'), 3400);
   }
@@ -1560,9 +1835,13 @@
     triggerFileInput, handleFileSelect, handleDragOver, handleDrop, clearFile,
     toggleAdapt, processContent, clearAll, copyResult, downloadTxt,
     printResult, toggleReadingMode,
+    toggleNeuroFocus,
     switchResultTab, speakResult, stopSpeech,
     openLegalModal, closeLegalModal, switchLegalTab, acceptConsent,
     openHistoryModal, closeHistoryModal, loadHistoryItem, deleteHistoryItem, clearHistory,
     navigateTo, nextTdahStep, prevTdahStep, submitTdahStep,
     onGlobalSearchInput, onGlobalSearchKeydown, triggerAvatarUpload, handleAvatarSelect,
+    chooseAccessibilityProfile,
+    doVerifyTwoFactor, doResendTwoFactor, doCancelTwoFactor,
+    toggleUserMenu, doUpdatePassword, doUpdateDefaultProfile,
   });
