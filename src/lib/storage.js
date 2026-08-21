@@ -17,6 +17,14 @@ const AVATARS_BUCKET = 'avatars';
 const sanitizeFileName = name =>
   name.normalize('NFKD').replace(/[^\w.\-]+/g, '_').slice(-120);
 
+/** Genera una URL efímera para un avatar privado del usuario autenticado. */
+export async function getAvatarSignedUrl(path, userId) {
+  if (!isSupabaseConfigured || !path || !userId || !path.startsWith(`${userId}/`)) return null;
+  const { data, error } = await supabase.storage.from(AVATARS_BUCKET).createSignedUrl(path, 60 * 60);
+  if (error) { console.warn('[EduInclusiva] createSignedUrl avatar error:', error); return null; }
+  return data?.signedUrl || null;
+}
+
 /** Sube el archivo original a un bucket privado, particionado por usuario. Devuelve la URL pública/firmada o null. */
 export async function uploadOriginalFile(file, userId) {
   if (!isSupabaseConfigured || !userId || !file) return null;
@@ -36,7 +44,7 @@ export async function uploadOriginalFile(file, userId) {
   return signed?.signedUrl || null;
 }
 
-/** Sube/reemplaza el avatar del usuario y actualiza profiles.avatar_url. Devuelve la URL pública o null. */
+/** Sube/reemplaza un avatar privado y devuelve una URL firmada de corta duración. */
 export async function uploadAvatar(file, userId) {
   if (!isSupabaseConfigured || !userId || !file) return null;
   if (file.size > 5 * 1024 * 1024) return null; // 5 MB alcanza y sobra para un avatar
@@ -49,17 +57,16 @@ export async function uploadAvatar(file, userId) {
   });
   if (error) { console.warn('[EduInclusiva] uploadAvatar error:', error); return null; }
 
-  const { data } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(path);
-  const avatarUrl = data?.publicUrl ? `${data.publicUrl}?t=${Date.now()}` : null;
+  const avatarUrl = await getAvatarSignedUrl(path, userId);
 
   if (avatarUrl) {
     const { error: profileErr } = await supabase
       .from('profiles')
-      .update({ avatar_url: avatarUrl })
+      .update({ avatar_url: path })
       .eq('id', userId);
     if (profileErr) console.warn('[EduInclusiva] No se pudo actualizar profiles.avatar_url:', profileErr);
 
-    const { error: metaErr } = await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
+    const { error: metaErr } = await supabase.auth.updateUser({ data: { avatar_path: path } });
     if (metaErr) console.warn('[EduInclusiva] No se pudo actualizar el metadata del usuario:', metaErr);
   }
 

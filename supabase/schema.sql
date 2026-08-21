@@ -110,7 +110,7 @@ create policy "history: delete own" on public.adaptation_history
 
 -- ── Storage: buckets ───────────────────────────────────
 insert into storage.buckets (id, name, public)
-values ('avatars', 'avatars', true)
+values ('avatars', 'avatars', false)
 on conflict (id) do nothing;
 
 insert into storage.buckets (id, name, public)
@@ -122,8 +122,9 @@ on conflict (id) do nothing;
 -- leer/escribir dentro de su propia carpeta (storage.foldername(name)[1]).
 
 drop policy if exists "avatars: public read" on storage.objects;
-create policy "avatars: public read" on storage.objects
-  for select using (bucket_id = 'avatars');
+drop policy if exists "avatars: owner read" on storage.objects;
+create policy "avatars: owner read" on storage.objects
+  for select using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
 
 drop policy if exists "avatars: owner write" on storage.objects;
 create policy "avatars: owner write" on storage.objects
@@ -132,6 +133,10 @@ create policy "avatars: owner write" on storage.objects
 drop policy if exists "avatars: owner update" on storage.objects;
 create policy "avatars: owner update" on storage.objects
   for update using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
+
+drop policy if exists "avatars: owner delete" on storage.objects;
+create policy "avatars: owner delete" on storage.objects
+  for delete using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
 
 drop policy if exists "uploads: owner read" on storage.objects;
 create policy "uploads: owner read" on storage.objects

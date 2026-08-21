@@ -66,24 +66,32 @@ persistencia reales:
 1. Creá un proyecto en [supabase.com](https://supabase.com).
 2. **SQL Editor** → pegá el contenido de [`supabase/schema.sql`](./supabase/schema.sql) → Run.
    Esto crea las tablas `profiles`, `accessibility_preferences` y `adaptation_history` (con RLS,
-   cada usuario solo ve sus propios datos) y los buckets de Storage `avatars` (público) y `uploads`
-   (privado, para los archivos originales que suben los usuarios).
-3. **Authentication → Providers → Google**: activalo y completá el Client ID / Client Secret de un
+   cada usuario solo ve sus propios datos) y los buckets privados `avatars` y `uploads`.
+3. Aplicá, en este orden, todas las migraciones versionadas:
+   - [`20260819_add_jobs_rag_progress.sql`](./supabase/migrations/20260819_add_jobs_rag_progress.sql):
+     crea `public.jobs`, requerida para el seguimiento de trabajos de n8n definido en
+     [`API_FLOW.md`](./API_FLOW.md).
+   - [`20260820_auth_security_hardening.sql`](./supabase/migrations/20260820_auth_security_hardening.sql):
+     protege roles, añade rate limiting y soporte de 2FA.
+   - [`20260821_private_avatars.sql`](./supabase/migrations/20260821_private_avatars.sql):
+     vuelve privados los avatares existentes y migra las URLs públicas históricas a rutas internas.
+   Ejecutá cada archivo una sola vez, desde el SQL Editor o el mecanismo de migraciones elegido por
+   el equipo. Un entorno no está listo hasta que el esquema base y las tres migraciones estén aplicados.
+4. **Authentication → Providers → Google**: activalo y completá el Client ID / Client Secret de un
    proyecto en [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (tipo
    "OAuth 2.0 Client ID", aplicación web). Como *Authorized redirect URI* en Google Cloud, usá la
    URL de callback que Supabase te muestra en esa misma pantalla
    (`https://<tu-proyecto>.supabase.co/auth/v1/callback`).
-4. **Project Settings → API** → copiá `Project URL` y `anon public key` a tu `.env`:
+5. **Project Settings → API** → copiá `Project URL` y `anon public key` a tu `.env`:
    ```
    VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
    VITE_SUPABASE_ANON_KEY=tu-clave-anon-publica
    ```
-5. Reiniciá `npm run dev` (o redeployá). La app detecta automáticamente que Supabase está
+6. Reiniciá `npm run dev` (o redeployá). La app detecta automáticamente que Supabase está
    configurado y deja de usar el modo demo.
-6. Aplicá también [`supabase/migrations/20260820_auth_security_hardening.sql`](./supabase/migrations/20260820_auth_security_hardening.sql)
-   (roles de admin blindados server-side, rate limiting anti fuerza bruta y soporte de 2FA por
-   correo). Ver [`AUTH_SECURITY.md`](./AUTH_SECURITY.md) para el detalle completo y el contrato
-   que debe implementar n8n para el envío del código de 2FA.
+
+Los avatares usan URLs firmadas de una hora y solo el propietario puede leerlos. No deben cambiarse
+a un bucket público sin una revisión explícita de privacidad y consentimiento.
 
 ## Configurar Google Analytics 4
 
@@ -102,9 +110,9 @@ El repositorio incluye un `vercel.json` con:
 - Cabeceras de seguridad (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`).
 - Cabeceras CORS básicas para restringir qué orígenes pueden consumir el sitio desplegado.
 
-Antes de deployar a producción, actualizá el valor de `Access-Control-Allow-Origin` en
-`vercel.json` con tu dominio real, y recordá configurar las variables de entorno del paso anterior
-en el proyecto de Vercel.
+Antes de deployar a producción, configurá las variables de entorno del paso anterior en el proyecto
+de Vercel. Las integraciones externas (n8n, Supabase y Google OAuth) deben restringir sus propios
+orígenes permitidos; esta SPA no publica cabeceras CORS globales.
 
 ## Estructura del proyecto
 
@@ -121,7 +129,8 @@ en el proyecto de Vercel.
 │       ├── analytics.js        # Google Analytics 4 (gateado por consentimiento)
 │       └── search.js           # Índice y filtro del buscador global
 ├── supabase/
-│   └── schema.sql        # Migración SQL (tablas, RLS, buckets de Storage)
+│   ├── schema.sql        # Esquema base (tablas, RLS y buckets privados)
+│   └── migrations/       # Migraciones obligatorias aplicadas en orden
 ├── .env.example          # Plantilla de variables de entorno
 ├── vercel.json           # Config de build, headers de seguridad y CORS para Vercel
 └── vite.config.js

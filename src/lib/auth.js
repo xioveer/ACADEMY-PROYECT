@@ -19,6 +19,7 @@
    logins admin. Ver AUTH_SECURITY.md para el detalle completo.
 ══════════════════════════════════════════════ */
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
+import { getAvatarSignedUrl } from './storage.js';
 
 const LS_USERS_KEY = 'edu_users'; // solo la "base" de usuarios demo (nombre + hash), no la sesión activa
 
@@ -99,12 +100,21 @@ function formatLockMessage(lockedUntil) {
   return `Demasiados intentos fallidos. Probá de nuevo en ${mins} min.`;
 }
 
-/** Consulta el rol del usuario en `profiles` (fuente de verdad server-side, ver punto 2). */
-async function fetchUserRole(userId) {
-  if (!userId) return 'user';
-  const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle();
-  if (error || !data) return 'user';
-  return data.role || 'user';
+/** Completa los datos del perfil que no deben confiarse al JWT. */
+async function hydrateUserProfile(user) {
+  if (!user || !isSupabaseConfigured) return user;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role, avatar_url')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (error) {
+    console.error('[EduInclusiva] No se pudo cargar el perfil:', error);
+    return user;
+  }
+  user.role = data?.role || 'user';
+  if (data?.avatar_url) user.avatarUrl = await getAvatarSignedUrl(data.avatar_url, user.id);
+  return user;
 }
 
 /** Normaliza el user de Supabase (auth.users + user_metadata) a {email, name} */
@@ -124,7 +134,7 @@ export async function getCurrentUser() {
     const { data, error } = await supabase.auth.getSession();
     if (error) { console.error('[EduInclusiva] getSession error:', error); return null; }
     const user = normalizeSupabaseUser(data.session?.user);
-    if (user) user.role = await fetchUserRole(user.id);
+    if (user) await hydrateUserProfile(user);
     return user;
   }
   return getDemoSession();
@@ -135,7 +145,7 @@ export function onAuthStateChange(callback) {
   if (!isSupabaseConfigured) return () => {};
   const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
     const user = normalizeSupabaseUser(session?.user);
-    if (user) user.role = await fetchUserRole(user.id);
+    if (user) await hydrateUserProfile(user);
     callback(user);
   });
   return () => sub.subscription.unsubscribe();
@@ -155,7 +165,7 @@ export async function signInWithPassword(email, password) {
     }
     await supabase.rpc('register_successful_attempt', { p_identifier: normalizedEmail });
     const user = normalizeSupabaseUser(data.user);
-    user.role = await fetchUserRole(user.id);
+    await hydrateUserProfile(user);
     return { user, error: null };
   }
 
@@ -185,16 +195,34 @@ export async function signUp(name, email, password) {
   const policyError = validatePasswordPolicy(password);
 
   if (isSupabaseConfigured) {
+    if (!name || !normalizedEmail || !password) return { user: null, error: 'Completá todos los campos.', needsEmailConfirmation: false };
     if (policyError) return { user: null, error: policyError, needsEmailConfirmation: false };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return { user: null, error: 'Email inválido.', needsEmailConfirmation: false };
+
+    // Se separa del namespace de login: bloquear registros no debe bloquear
+    // el acceso de una cuenta existente con el mismo correo.
+    const rateLimitIdentifier = `signup:${normalizedEmail}`;
+    const { data: rl, error: rateLimitError } = await supabase
+      .rpc('check_rate_limit', { p_identifier: rateLimitIdentifier });
+    if (rateLimitError || !rl) {
+      console.error('[EduInclusiva] No se pudo verificar el rate limit de registro:', rateLimitError);
+      return { user: null, error: 'No se pudo verificar la seguridad del registro. Intentá nuevamente.', needsEmailConfirmation: false };
+    }
+    if (rl.allowed === false) return { user: null, error: formatLockMessage(rl.locked_until), needsEmailConfirmation: false };
+
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail, password, options: { data: { name } },
     });
-    if (error) return { user: null, error: translateAuthError(error), needsEmailConfirmation: false };
+    if (error) {
+      await supabase.rpc('register_failed_attempt', { p_identifier: rateLimitIdentifier });
+      return { user: null, error: translateAuthError(error), needsEmailConfirmation: false };
+    }
+    await supabase.rpc('register_successful_attempt', { p_identifier: rateLimitIdentifier });
     // Si la confirmación por correo está activa en el proyecto, Supabase no
     // devuelve sesión hasta que el usuario confirme el link enviado por mail.
     const needsEmailConfirmation = !data.session;
     const user = normalizeSupabaseUser(data.user);
-    if (user && !needsEmailConfirmation) user.role = await fetchUserRole(user.id);
+    if (user && !needsEmailConfirmation) await hydrateUserProfile(user);
     return { user, error: null, needsEmailConfirmation };
   }
 

@@ -129,14 +129,14 @@ y corre enteramente en Supabase.
 policies, solo accesible vía las funciones de abajo o `service_role`) y tres funciones
 `SECURITY DEFINER`:
 
-- `check_rate_limit(identifier)` — antes de intentar el login.
-- `register_failed_attempt(identifier)` — tras una contraseña incorrecta.
-- `register_successful_attempt(identifier)` — resetea el contador tras un login exitoso.
+- `check_rate_limit(identifier)` — antes de intentar el login o el registro.
+- `register_failed_attempt(identifier)` — tras una contraseña incorrecta o un registro rechazado.
+- `register_successful_attempt(identifier)` — resetea el contador tras un login o registro exitoso.
 
 Reglas: **5 intentos fallidos → bloqueo de 15 minutos**; la ventana de conteo expira a los 30
-minutos de inactividad (para no acumular intentos viejos indefinidamente). `src/lib/auth.js` ya
-llama a estas tres funciones en `signInWithPassword` cuando Supabase está configurado — no
-requiere ningún cambio adicional para funcionar.
+minutos de inactividad (para no acumular intentos viejos indefinidamente). `src/lib/auth.js` llama
+a estas funciones tanto en `signInWithPassword` como en `signUp`. El registro usa el namespace
+`signup:<email>` para que un bloqueo de creación no afecte el acceso de una cuenta ya existente.
 
 **Limitación honesta**: el identificador es el email, no la IP (Postgres/Supabase no expone de
 forma confiable la IP real del cliente detrás de la mayoría de configuraciones de pooling/CDN).
