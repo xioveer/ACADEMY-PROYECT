@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es" dir="ltr">
 <head>
   <meta charset="UTF-8" />
@@ -6,16 +6,12 @@
   <title>EduInclusiva AI — Educación para todos</title>
   <meta name="description" content="Adapta material educativo para personas con discapacidad visual, auditiva o neurodivergencia usando inteligencia artificial." />
 
-  <!-- Google Analytics 4: el bootstrap de gtag.js vive en src/lib/analytics.js, importado
-       por src/main.js. No se inyecta acá con un <script> estático porque el Measurement ID
-       solo existe como variable de entorno de build (VITE_GA_MEASUREMENT_ID) y la carga debe
-       esperar a que el usuario acepte el banner de consentimiento (ver acceptConsent()). -->
+  
 
-  <!-- Fuentes: Atkinson Hyperlegible (accesibilidad) + Inter -->
+  
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- Lucide Icons (CDN ESM → se carga como módulo) -->
   <script type="module">
     import { createIcons, Eye, Zap, Ear, FileText, Image, Upload, Mic, Copy,
              Download, Trash2, LogOut, CheckCircle2, AlertCircle, Loader2,
@@ -202,6 +198,11 @@
       --color-accent:  #0369A1;
     }
     body.profile-tdah .distraction { display: none !important; }
+    /* En el dashboard docente, "TDAH" es apenas el perfil de adaptación
+       tildado por defecto — no la interfaz dedicada sin distracciones.
+       El buscador y el pill de estado del header deben seguir visibles ahí. */
+    body.profile-tdah:has(#view-docente.active) .distraction,
+    body.profile-tdah:has(#view-ajustes.active) .distraction { display: flex !important; }
     body.profile-tdah .app-header { box-shadow: none; border-bottom: 3px solid var(--color-primary); }
     body.profile-tdah .result-html-area {
       font-size: 1.1rem; line-height: 2.1;
@@ -400,6 +401,91 @@
     .a11y-icon-btn[aria-pressed="true"] { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
     @media (max-width: 860px) {
       .header-search { display: none; }
+      .app-sidebar { display: none; }
+    }
+
+    /* ══════════════════════════════════════════════
+       APP SHELL — sidebar fija + columna de header/contenido
+       Solo visible en las vistas "plataforma" (docente, ajustes) — las
+       interfaces especializadas (ceguera, auditivo, baja visión, TDAH) se
+       mantienen a pantalla completa y sin distracciones, tal como fueron
+       diseñadas.
+    ══════════════════════════════════════════════ */
+    .app-shell { display: flex; align-items: stretch; min-height: 100vh; }
+    .app-content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+    .app-sidebar {
+      width: 232px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1.6rem;
+      padding: 1.4rem 1rem; background: var(--color-surface); border-right: 1px solid var(--color-border);
+      position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: .5rem; padding: 0 .4rem;
+      font-family: var(--font-ui); font-weight: 700; font-size: 1.08rem;
+      color: var(--color-primary); text-decoration: none;
+    }
+    .sidebar-logo-ai { font-weight: 400; color: var(--color-muted); }
+    .sidebar-nav { display: flex; flex-direction: column; gap: .25rem; }
+    .sidebar-link {
+      display: flex; align-items: center; gap: .7rem; width: 100%; padding: .65rem .8rem;
+      border: none; border-radius: var(--radius-sm); background: transparent; color: var(--color-text);
+      font: inherit; font-size: .92rem; text-align: left; cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .sidebar-link:hover, .sidebar-link:focus-visible { background: var(--color-primary-xl); color: var(--color-primary); }
+    .sidebar-footer { margin-top: auto; display: flex; flex-direction: column; gap: .8rem; padding-top: 1rem; border-top: 1px solid var(--color-border); }
+    .sidebar-link-danger:hover, .sidebar-link-danger:focus-visible { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
+    .sidebar-tagline { font-size: .74rem; color: var(--color-muted); line-height: 1.5; padding: 0 .4rem; }
+
+    body:has(#view-ceguera.active) .app-sidebar,
+    body:has(#view-auditivo.active) .app-sidebar,
+    body:has(#view-baja-vision.active) .app-sidebar,
+    body:has(#view-tdah.active) .app-sidebar,
+    body:has(#view-lobby.active) .app-sidebar { display: none; }
+
+    /* El sidebar ya trae su propio logo — no repetirlo en el header cuando está visible. */
+    body:has(#view-docente.active) .app-header > .logo,
+    body:has(#view-ajustes.active) .app-header > .logo { display: none; }
+
+    /* ── Paso 1 del dashboard docente: archivo + texto lado a lado ── */
+    .content-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; align-items: start; }
+    .content-input-grid .upload-zone { height: 100%; }
+    .content-input-grid .text-input-wrap { display: flex; flex-direction: column; height: 100%; }
+    .content-input-grid .text-input-wrap textarea { flex: 1; min-height: 180px; }
+    @media (max-width: 780px) {
+      .content-input-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Dashboard docente: contenido principal + panel lateral derecho ── */
+    .docente-grid { display: grid; grid-template-columns: 1fr 280px; gap: 1.4rem; align-items: start; }
+    .docente-main-col { display: flex; flex-direction: column; gap: 1.4rem; min-width: 0; }
+    .docente-side-col { display: flex; flex-direction: column; gap: 1.1rem; position: sticky; top: 1.2rem; }
+    .docente-side-card { padding: 1.1rem 1.1rem 1.2rem; }
+    .card-title-sm {
+      display: flex; align-items: center; gap: .5rem; font-family: var(--font-ui);
+      font-size: .88rem; font-weight: 700; margin-bottom: .8rem;
+    }
+    .docente-recent-list { display: flex; flex-direction: column; gap: .5rem; }
+    .docente-recent-item {
+      display: block; width: 100%; text-align: left; padding: .55rem .6rem; border-radius: var(--radius-xs);
+      border: 1px solid var(--color-border); background: transparent; color: var(--color-text);
+      font: inherit; font-size: .8rem; cursor: pointer;
+    }
+    .docente-recent-item:hover { border-color: var(--color-primary); background: var(--color-primary-xl); }
+    .docente-recent-item strong { display: block; font-size: .82rem; margin-bottom: .15rem; }
+    .docente-recent-item span { color: var(--color-muted); font-size: .74rem; }
+    .docente-side-empty { color: var(--color-muted); font-size: .82rem; margin: 0; }
+    .docente-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+    .docente-stat {
+      display: flex; flex-direction: column; align-items: center; gap: .15rem; padding: .7rem .4rem;
+      border-radius: var(--radius-sm); background: var(--color-primary-xl);
+    }
+    .docente-stat-value { font-family: var(--font-ui); font-size: 1.35rem; font-weight: 800; color: var(--color-primary); }
+    .docente-stat-label { font-size: .72rem; color: var(--color-muted); text-align: center; }
+    .docente-shortcuts { display: flex; flex-direction: column; gap: .2rem; }
+    .docente-shortcuts .sidebar-link { padding: .5rem .5rem; font-size: .84rem; }
+    @media (max-width: 1000px) {
+      .docente-grid { grid-template-columns: 1fr; }
+      .docente-side-col { position: static; }
     }
 
     /* ══════════════════════════════════════════════
@@ -1177,9 +1263,7 @@
 <body>
   <a class="skip-link" href="#main-content">Ir al contenido principal</a>
 
-  <!-- ══════════════════════════════════════════════════════
-       MODAL AUTH
-  ══════════════════════════════════════════════════════ -->
+  
   <div id="auth-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
     <div class="modal-box">
       <h1 class="modal-title" id="auth-title">🎓 EduInclusiva <span style="font-weight:400;color:var(--color-muted)">AI</span></h1>
@@ -1208,7 +1292,7 @@
       </button>
       <div class="auth-divider"><span>o con tu correo</span></div>
 
-      <!-- Login -->
+      
       <div id="panel-login" class="tab-panel active" role="tabpanel" aria-labelledby="tab-login">
         <div class="form-group">
           <label for="login-email">Correo (institucional o personal)</label>
@@ -1226,7 +1310,7 @@
         <p class="modal-footer">¿No tenés cuenta? <a href="#" onclick="switchTab('register');return false">Registrate gratis</a></p>
       </div>
 
-      <!-- Registro -->
+      
       <div id="panel-register" class="tab-panel" role="tabpanel" aria-labelledby="tab-register">
         <div class="form-group">
           <label for="reg-name">Nombre completo</label>
@@ -1251,7 +1335,7 @@
         <p class="modal-footer">¿Ya tenés cuenta? <a href="#" onclick="switchTab('login');return false">Iniciar sesión</a></p>
       </div>
 
-      <!-- 2FA (solo logins admin, ver AUTH_SECURITY.md) -->
+      
       <div id="panel-2fa" class="tab-panel" role="tabpanel" aria-label="Verificación en dos pasos">
         <p class="modal-subtitle" style="margin-bottom:.9rem">
           Te enviamos un código de 6 dígitos a <strong id="twofa-email-hint"></strong>. Ingresalo para continuar.
@@ -1274,9 +1358,7 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       ONBOARDING: PERFIL DE ACCESIBILIDAD (tras iniciar sesión)
-  ══════════════════════════════════════════════════════ -->
+  
   <div id="accessibility-onboarding" class="modal-overlay hidden" role="dialog" aria-modal="true"
     aria-labelledby="accessibility-onboarding-title" aria-describedby="accessibility-onboarding-description">
     <div class="modal-box onboarding-box">
@@ -1305,9 +1387,7 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       MODAL LEGAL (Términos / Privacidad / Deslinde de IA)
-  ══════════════════════════════════════════════════════ -->
+  
   <div id="modal-legal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="legal-title"
     onclick="if(event.target===this) closeLegalModal()">
     <div class="modal-box modal-box-lg" style="position:relative">
@@ -1326,7 +1406,7 @@
           aria-controls="lpanel-disclaimer" onclick="switchLegalTab('disclaimer')">Deslinde de IA</button>
       </div>
 
-      <!-- Términos de Servicio -->
+      
       <div id="lpanel-terms" class="tab-panel active legal-content" role="tabpanel" aria-labelledby="ltab-terms">
         <h4>Términos de Servicio</h4>
         <p>Al usar EduInclusiva AI aceptás estos términos. La plataforma ayuda a docentes a adaptar material de estudio para estudiantes con discapacidad visual, auditiva o neurodivergencia, utilizando inteligencia artificial.</p>
@@ -1338,7 +1418,7 @@
         </ul>
       </div>
 
-      <!-- Política de Privacidad -->
+      
       <div id="lpanel-privacy" class="tab-panel legal-content" role="tabpanel" aria-labelledby="ltab-privacy">
         <h4>Política de Privacidad</h4>
         <p>Guardamos localmente en tu navegador (localStorage), no en un servidor propio nuestro, los siguientes datos:</p>
@@ -1353,7 +1433,7 @@
         <p>No vendemos datos personales ni usamos cookies de rastreo publicitario. Podés borrar tu sesión y preferencias en cualquier momento cerrando sesión o limpiando el almacenamiento local del navegador. Este tratamiento se realiza conforme a la normativa de protección de datos aplicable en tu jurisdicción (p. ej. habeas data / RGPD).</p>
       </div>
 
-      <!-- Aviso de Deslinde de Responsabilidad de IA -->
+      
       <div id="lpanel-disclaimer" class="tab-panel legal-content" role="tabpanel" aria-labelledby="ltab-disclaimer">
         <h4>Aviso de Deslinde de Responsabilidad de IA</h4>
         <div class="legal-disclaimer-callout">
@@ -1367,9 +1447,7 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       MODAL HISTORIAL DE ADAPTACIONES
-  ══════════════════════════════════════════════════════ -->
+  
   <div id="modal-history" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="history-title"
     onclick="if(event.target===this) closeHistoryModal()">
     <div class="modal-box modal-box-lg" style="position:relative">
@@ -1391,9 +1469,34 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       HEADER
-  ══════════════════════════════════════════════════════ -->
+  
+  <div class="app-shell">
+    <aside class="app-sidebar" id="app-sidebar" aria-label="Navegación principal">
+      <a href="#main-content" class="sidebar-logo" aria-label="EduInclusiva AI – inicio">
+        <span aria-hidden="true">🎓</span> EduInclusiva <span class="sidebar-logo-ai">AI</span>
+      </a>
+      <nav class="sidebar-nav" aria-label="Secciones">
+        <button type="button" class="sidebar-link" onclick="navigateTo('lobby')">
+          <i data-lucide="layout-grid" style="width:16px;height:16px"></i> Inicio
+        </button>
+        <button type="button" class="sidebar-link" onclick="navigateTo('docente')">
+          <i data-lucide="refresh-cw" style="width:16px;height:16px"></i> Procesos
+        </button>
+        <button type="button" class="sidebar-link" onclick="openHistoryModal()">
+          <i data-lucide="history" style="width:16px;height:16px"></i> Historial
+        </button>
+        <button type="button" class="sidebar-link" onclick="navigateTo('ajustes')">
+          <i data-lucide="settings" style="width:16px;height:16px"></i> Ajustes
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button type="button" class="sidebar-link sidebar-link-danger" onclick="doLogout()">
+          <i data-lucide="log-out" style="width:16px;height:16px"></i> Cerrar sesión
+        </button>
+        <p class="sidebar-tagline">EduInclusiva AI<br>Tecnología que elimina barreras y abre posibilidades.</p>
+      </div>
+    </aside>
+    <div class="app-content">
   <header class="app-header" role="banner">
     <a href="#main-content" class="logo" aria-label="EduInclusiva AI – inicio">
       🎓 EduInclusiva <span>AI</span>
@@ -1465,14 +1568,10 @@
     </div>
   </header>
 
-  <!-- ══════════════════════════════════════════════════════
-       APP PRINCIPAL
-  ══════════════════════════════════════════════════════ -->
+  
   <main id="app-main" role="main">
 
-    <!-- ══════════════════════════════════════════════════════
-         VISTA: LOBBY (selección de perfil / interfaz)
-    ══════════════════════════════════════════════════════ -->
+    
     <section id="view-lobby" class="view active" aria-label="Selección de perfil de accesibilidad">
       <div class="lobby-wrap">
         <h1 class="lobby-title">¿Con qué perfil querés trabajar hoy?</h1>
@@ -1514,9 +1613,7 @@
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         VISTA: CEGUERA / AUDIO-NAVEGACIÓN
-    ══════════════════════════════════════════════════════ -->
+    
     <section id="view-ceguera" class="view" aria-label="Perfil Ceguera y Audio-Navegación">
       <div class="view-topbar">
         <button type="button" class="view-back" onclick="navigateTo('lobby')">
@@ -1605,9 +1702,7 @@
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         VISTA: AUDITIVO (Sordera / Hipoacusia)
-    ══════════════════════════════════════════════════════ -->
+    
     <section id="view-auditivo" class="view" aria-label="Perfil Auditivo">
       <div class="view-topbar">
         <button type="button" class="view-back" onclick="navigateTo('lobby')">
@@ -1689,9 +1784,7 @@
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         VISTA: BAJA VISIÓN
-    ══════════════════════════════════════════════════════ -->
+    
     <section id="view-baja-vision" class="view" aria-label="Perfil Baja Visión">
       <div class="view-topbar">
         <button type="button" class="view-back" onclick="navigateTo('lobby')">
@@ -1769,9 +1862,7 @@
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         VISTA: TDAH / NEURODIVERGENCIA (wizard de 3 pasos)
-    ══════════════════════════════════════════════════════ -->
+    
     <section id="view-tdah" class="view" aria-label="Perfil TDAH y Neurodivergencia">
       <div class="view-topbar">
         <button type="button" class="view-back" onclick="navigateTo('lobby')">
@@ -1787,7 +1878,7 @@
           <div class="tdah-progress-label" id="tdah-progress-label">Paso 1 de 3</div>
         </div>
 
-        <!-- Paso 1: Contenido -->
+        
         <div class="tdah-step active card" id="tdah-step-1">
           <h3 class="card-title"><span class="card-step">1</span> Contenido a adaptar</h3>
           <div class="upload-zone" id="upload-zone-tdah"
@@ -1820,7 +1911,7 @@
           </div>
         </div>
 
-        <!-- Paso 2: Confirmar -->
+        
         <div class="tdah-step card" id="tdah-step-2">
           <h3 class="card-title"><span class="card-step">2</span> Confirmar</h3>
           <div class="tdah-confirm-box">
@@ -1837,7 +1928,7 @@
           </div>
         </div>
 
-        <!-- Paso 3: Resultado -->
+        
         <div class="tdah-step card" id="tdah-step-3">
           <h3 class="card-title"><span class="card-step">3</span> Resultado</h3>
           <div class="progress-wrap" id="progress-wrap-tdah" role="status" aria-live="polite">
@@ -1881,16 +1972,15 @@
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         VISTA: DOCENTE / ESTÁNDAR (plataforma completa)
-    ══════════════════════════════════════════════════════ -->
+    
     <section id="view-docente" class="view">
     <div class="container" id="main-content" tabindex="-1">
 
       <h2 class="page-title">Adaptar material educativo</h2>
       <p class="page-sub">Subí un archivo o pegá el texto, elegí el perfil y las adaptaciones, y la IA transforma el contenido.</p>
 
-      <!-- ── PASO 1: CONTENIDO ──────────────────────────────── -->
+      <div class="docente-grid">
+      <div class="docente-main-col">
       <section class="card" aria-labelledby="step1-title">
         <h3 class="card-title" id="step1-title">
           <span class="card-step">1</span>
@@ -1898,7 +1988,7 @@
           Contenido a adaptar
         </h3>
 
-        <!-- ── SELECTOR DE ZONA DE ADAPTACIÓN ─────────────────── -->
+        
         <div class="profile-select-wrap">
           <label id="profile-select-label">Perfil de adaptación</label>
           <div class="profile-grid" role="radiogroup" aria-labelledby="profile-select-label">
@@ -1946,49 +2036,53 @@
           </div>
         </div>
 
-        <!-- Zona de upload -->
-        <div class="upload-zone" id="upload-zone"
-          role="button" tabindex="0"
-          aria-label="Subir archivo PDF, TXT, DOCX, JPG, PNG o WEBP. Clic o arrastrar."
-          onclick="triggerFileInput()"
-          onkeydown="if(event.key==='Enter'||event.key===' '){triggerFileInput();event.preventDefault();}"
-          ondragover="handleDragOver(event)"
-          ondragleave="this.classList.remove('dragover')"
-          ondrop="handleDrop(event)">
-          <input type="file" id="file-input"
-            accept=".pdf,.txt,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp"
-            onchange="handleFileSelect(event)"
-            aria-label="Seleccionar archivo" />
-          <div class="upload-icon">📂</div>
-          <p><strong>Click para subir</strong> o arrastrá aquí</p>
-          <p style="font-size:.8rem">PDF · TXT · DOCX · XLSX · PPTX · JPG · PNG · WEBP</p>
-          <!-- Botón extra visible solo en touch -->
-          <button class="btn btn-ghost btn-sm upload-cta" onclick="triggerFileInput();event.stopPropagation()" aria-label="Seleccionar archivo desde el dispositivo">
-            <i data-lucide="image" style="width:14px;height:14px"></i>
-            Elegir archivo
-          </button>
-        </div>
 
-        <!-- Preview -->
-        <div class="file-preview" id="file-preview" role="status" aria-live="polite">
-          <img id="preview-thumb" class="image-thumb" src="" alt="" style="display:none" />
-          <i data-lucide="check-circle-2" style="width:16px;height:16px;color:var(--color-accent);flex-shrink:0"></i>
-          <span class="file-name-text" id="file-name">archivo</span>
-          <button class="btn btn-ghost btn-sm" onclick="clearFile()" aria-label="Quitar archivo" style="margin-left:auto;flex-shrink:0">
-            <i data-lucide="trash-2" style="width:13px;height:13px"></i>
-          </button>
-        </div>
+        <div class="content-input-grid">
+          <div>
+            <div class="upload-zone" id="upload-zone"
+              role="button" tabindex="0"
+              aria-label="Subir archivo PDF, TXT, DOCX, JPG, PNG o WEBP. Clic o arrastrar."
+              onclick="triggerFileInput()"
+              onkeydown="if(event.key==='Enter'||event.key===' '){triggerFileInput();event.preventDefault();}"
+              ondragover="handleDragOver(event)"
+              ondragleave="this.classList.remove('dragover')"
+              ondrop="handleDrop(event)">
+              <input type="file" id="file-input"
+                accept=".pdf,.txt,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp"
+                onchange="handleFileSelect(event)"
+                aria-label="Seleccionar archivo" />
+              <div class="upload-icon">📂</div>
+              <p><strong>Click para subir</strong> o arrastrá aquí</p>
+              <p style="font-size:.8rem">PDF · TXT · DOCX · XLSX · PPTX · JPG · PNG · WEBP</p>
 
-        <!-- Textarea -->
-        <div class="text-input-wrap">
-          <label for="text-input">O pegá el texto directamente</label>
-          <textarea id="text-input" rows="5"
-            placeholder="Pegá aquí el apunte, consigna o material que querés adaptar…"
-            autocomplete="off" spellcheck="true"></textarea>
+              <button class="btn btn-ghost btn-sm upload-cta" onclick="triggerFileInput();event.stopPropagation()" aria-label="Seleccionar archivo desde el dispositivo">
+                <i data-lucide="image" style="width:14px;height:14px"></i>
+                Elegir archivo
+              </button>
+            </div>
+
+
+            <div class="file-preview" id="file-preview" role="status" aria-live="polite">
+              <img id="preview-thumb" class="image-thumb" src="" alt="" style="display:none" />
+              <i data-lucide="check-circle-2" style="width:16px;height:16px;color:var(--color-accent);flex-shrink:0"></i>
+              <span class="file-name-text" id="file-name">archivo</span>
+              <button class="btn btn-ghost btn-sm" onclick="clearFile()" aria-label="Quitar archivo" style="margin-left:auto;flex-shrink:0">
+                <i data-lucide="trash-2" style="width:13px;height:13px"></i>
+              </button>
+            </div>
+          </div>
+
+
+          <div class="text-input-wrap">
+            <label for="text-input">O pegá el texto directamente</label>
+            <textarea id="text-input" rows="5"
+              placeholder="Pegá aquí el apunte, consigna o material que querés adaptar…"
+              autocomplete="off" spellcheck="true"></textarea>
+          </div>
         </div>
       </section>
 
-      <!-- ── PASO 2: ADAPTACIONES ───────────────────────────── -->
+      
       <section class="card" id="adaptations-card" aria-labelledby="step2-title">
         <h3 class="card-title" id="step2-title">
           <span class="card-step">2</span>
@@ -2077,7 +2171,7 @@
         </div>
       </section>
 
-      <!-- ── PASO 3: PROCESAR ──────────────────────────────── -->
+      
       <section class="card" aria-labelledby="step3-title">
         <h3 class="card-title" id="step3-title">
           <span class="card-step">3</span>
@@ -2106,7 +2200,7 @@
         </div>
       </section>
 
-      <!-- ── RESULTADO ─────────────────────────────────────── -->
+      
       <section class="card result-area" id="result-section" aria-labelledby="result-title">
         <h3 class="card-title" id="result-title">
           <i data-lucide="check-circle-2" style="width:16px;height:16px;color:var(--color-accent)"></i>
@@ -2130,7 +2224,7 @@
           </button>
         </div>
 
-        <!-- Tab: HTML adaptado -->
+        
         <div id="rcontent-html" class="result-content active" role="tabpanel" aria-labelledby="rtab-html">
           <div class="result-html-area" id="result-html-main" aria-live="polite"></div>
           <div class="result-actions">
@@ -2150,7 +2244,7 @@
           </div>
         </div>
 
-        <!-- Tab: Audio TTS -->
+        
         <div id="rcontent-audio" class="result-content" role="tabpanel" aria-labelledby="rtab-audio">
           <p style="font-size:.88rem;color:var(--color-muted);margin-bottom:.9rem">
             Reproducción con síntesis de voz del navegador (Web Speech API, sin costo).
@@ -2172,17 +2266,64 @@
           </div>
         </div>
 
-        <!-- Tab: Raw JSON -->
+        
         <div id="rcontent-raw" class="result-content" role="tabpanel" aria-labelledby="rtab-raw">
           <pre class="result-plain" id="result-raw"></pre>
         </div>
 
       </section>
+      </div>
+
+      <aside class="docente-side-col" aria-label="Actividad y accesos rápidos">
+        <section class="card docente-side-card">
+          <h3 class="card-title-sm">
+            <i data-lucide="history" style="width:14px;height:14px;color:var(--color-primary)"></i>
+            Actividad reciente
+          </h3>
+          <div id="docente-recent-activity" class="docente-recent-list">
+            <p class="docente-side-empty">Todavía no adaptaste ningún material.</p>
+          </div>
+        </section>
+
+        <section class="card docente-side-card">
+          <h3 class="card-title-sm">
+            <i data-lucide="check-circle-2" style="width:14px;height:14px;color:var(--color-accent)"></i>
+            Tus procesos
+          </h3>
+          <div class="docente-stats-grid">
+            <div class="docente-stat">
+              <span class="docente-stat-value" id="docente-stat-month">0</span>
+              <span class="docente-stat-label">Este mes</span>
+            </div>
+            <div class="docente-stat">
+              <span class="docente-stat-value" id="docente-stat-total">0</span>
+              <span class="docente-stat-label">Completados</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card docente-side-card">
+          <h3 class="card-title-sm">
+            <i data-lucide="zap" style="width:14px;height:14px;color:var(--color-primary)"></i>
+            Atajos rápidos
+          </h3>
+          <div class="docente-shortcuts">
+            <button type="button" class="sidebar-link" onclick="document.getElementById('text-input')?.focus()">
+              <i data-lucide="upload" style="width:15px;height:15px"></i> Nuevo proceso
+            </button>
+            <button type="button" class="sidebar-link" onclick="openHistoryModal()">
+              <i data-lucide="history" style="width:15px;height:15px"></i> Ver historial completo
+            </button>
+            <button type="button" class="sidebar-link" onclick="navigateTo('ajustes')">
+              <i data-lucide="settings" style="width:15px;height:15px"></i> Ir a Ajustes
+            </button>
+          </div>
+        </section>
+      </aside>
+      </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════
-         FOOTER LEGAL
-    ══════════════════════════════════════════════════════ -->
+
     <footer class="app-footer">
       <div class="footer-links">
         <button type="button" class="footer-link" onclick="openLegalModal('terms')">Términos de Servicio</button>
@@ -2192,17 +2333,15 @@
       <p class="footer-copy">EduInclusiva AI es una herramienta de apoyo docente. No emite diagnósticos médicos, clínicos ni psicopedagógicos.</p>
     </footer>
     </section>
-    <!-- /view-docente -->
+    
 
-    <!-- ══════════════════════════════════════════════════════
-         VISTA: AJUSTES
-    ══════════════════════════════════════════════════════ -->
+    
     <section id="view-ajustes" class="view" aria-label="Ajustes y configuración">
       <div class="container">
         <h2 class="page-title">Ajustes y configuración</h2>
         <p class="page-sub">Tu cuenta, tus preferencias de accesibilidad y el estado de seguridad de tu sesión.</p>
 
-        <!-- Cuenta y credenciales -->
+        
         <section class="card" aria-labelledby="settings-account-title">
           <h3 class="card-title" id="settings-account-title">
             <i data-lucide="user" style="width:16px;height:16px;color:var(--color-primary)"></i>
@@ -2238,7 +2377,7 @@
           </button>
         </section>
 
-        <!-- Preferencias de accesibilidad -->
+        
         <section class="card" aria-labelledby="settings-a11y-title">
           <h3 class="card-title" id="settings-a11y-title">
             <i data-lucide="accessibility" style="width:16px;height:16px;color:var(--color-primary)"></i>
@@ -2259,7 +2398,7 @@
           </p>
         </section>
 
-        <!-- Seguridad / 2FA -->
+        
         <section class="card" aria-labelledby="settings-security-title">
           <h3 class="card-title" id="settings-security-title">
             <i data-lucide="shield" style="width:16px;height:16px;color:var(--color-primary)"></i>
@@ -2278,16 +2417,18 @@
         </button>
       </div>
     </section>
-    <!-- /view-ajustes -->
-  </main>
 
-  <!-- Canal persistente de avisos visuales: prioritario para el perfil Persona Sorda. -->
+  </main>
+    </div>
+  </div>
+
+
   <div id="visual-alert-region" class="visual-alert-region" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <!-- TOAST -->
+  
   <div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
-  <!-- BANNER DE CONSENTIMIENTO (uso de localStorage) -->
+  
   <div id="consent-banner" class="hidden" role="region" aria-label="Aviso de uso de almacenamiento local">
     <p>
       <i data-lucide="shield" style="width:14px;height:14px;vertical-align:-2px;margin-right:.3rem"></i>
@@ -2297,14 +2438,16 @@
     <button type="button" class="btn btn-primary btn-sm" onclick="acceptConsent()">Entendido</button>
   </div>
 
-  <!-- Loader spin keyframe -->
+  
   <style>
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   </style>
 
-  <!-- ══════════════════════════════════════════════════════
-       JAVASCRIPT
-  ══════════════════════════════════════════════════════ -->
+  
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
+
+
+
+
