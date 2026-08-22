@@ -53,6 +53,15 @@
       --color-text:        #1C1917;
       --color-muted:       #78716C;
       --color-overlay:     rgba(0,0,0,.52);
+
+      /* Identidad corporativa — reservados para el logotipo, el header y
+         acentos decorativos (glows, bordes, gradientes). Nunca se usan
+         como color de texto: --color-accent ya cumple AA sobre superficies
+         claras y es el que sigue rigiendo el texto/iconografía semántica. */
+      --brand-dark:          #0B0F17;
+      --brand-dark-2:        #151B26;
+      --brand-emerald:       #10B981;
+      --brand-emerald-glow:  #34D399;
       --font-body:         'Atkinson Hyperlegible', sans-serif;
       --font-ui:           'Inter', sans-serif;
       --radius:            14px;
@@ -308,13 +317,32 @@
       box-shadow: var(--shadow);
       transition: background var(--transition-slow), border-color var(--transition-slow);
     }
+    /* Filete de identidad corporativa: oscuro → esmeralda brillante */
+    .app-header::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--brand-dark) 0%, var(--brand-emerald) 55%, var(--brand-emerald-glow) 100%);
+    }
     .logo {
       font-family: var(--font-ui); font-size: 1.2rem; font-weight: 700;
-      color: var(--color-primary); display: flex; align-items: center; gap: .45rem;
+      color: var(--color-primary); display: flex; align-items: center; gap: .55rem;
       text-decoration: none; letter-spacing: -.01em;
     }
-    .logo span { font-weight: 400; color: var(--color-muted); }
+    .logo-ai-text { font-weight: 800; color: var(--color-accent); }
     .header-actions { display: flex; align-items: center; gap: .8rem; }
+
+    /* ══════════════════════════════════════════════
+       LOGOTIPO INSTITUCIONAL — insignia oscura + gradiente esmeralda.
+       Decorativo (aria-hidden): el nombre accesible ya vive en el <a>.
+    ══════════════════════════════════════════════ */
+    .brand-mark {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0;
+      background: linear-gradient(155deg, var(--brand-dark) 0%, var(--brand-dark-2) 100%);
+      box-shadow: 0 0 0 1px rgba(16,185,129,.35), 0 4px 14px rgba(16,185,129,.28);
+    }
+    .brand-mark svg { width: 19px; height: 19px; }
+    .brand-mark-sm { width: 28px; height: 28px; border-radius: 9px; }
+    .brand-mark-sm svg { width: 16px; height: 16px; }
 
     /* ══════════════════════════════════════════════
        BUSCADOR GLOBAL (header)
@@ -423,7 +451,7 @@
       font-family: var(--font-ui); font-weight: 700; font-size: 1.08rem;
       color: var(--color-primary); text-decoration: none;
     }
-    .sidebar-logo-ai { font-weight: 400; color: var(--color-muted); }
+    .sidebar-logo-ai { font-weight: 800; color: var(--color-accent); }
     .sidebar-nav { display: flex; flex-direction: column; gap: .25rem; }
     .sidebar-link {
       display: flex; align-items: center; gap: .7rem; width: 100%; padding: .65rem .8rem;
@@ -477,9 +505,9 @@
     .docente-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
     .docente-stat {
       display: flex; flex-direction: column; align-items: center; gap: .15rem; padding: .7rem .4rem;
-      border-radius: var(--radius-sm); background: var(--color-primary-xl);
+      border-radius: var(--radius-sm); background: var(--color-accent-xl);
     }
-    .docente-stat-value { font-family: var(--font-ui); font-size: 1.35rem; font-weight: 800; color: var(--color-primary); }
+    .docente-stat-value { font-family: var(--font-ui); font-size: 1.35rem; font-weight: 800; color: var(--color-accent); }
     .docente-stat-label { font-size: .72rem; color: var(--color-muted); text-align: center; }
     .docente-shortcuts { display: flex; flex-direction: column; gap: .2rem; }
     .docente-shortcuts .sidebar-link { padding: .5rem .5rem; font-size: .84rem; }
@@ -1263,7 +1291,16 @@
 <body>
   <a class="skip-link" href="#main-content">Ir al contenido principal</a>
 
-  
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="brand-gradient" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#34D399" />
+        <stop offset="100%" stop-color="#10B981" />
+      </linearGradient>
+    </defs>
+  </svg>
+
+
   <div id="auth-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
     <div class="modal-box">
       <h1 class="modal-title" id="auth-title">🎓 EduInclusiva <span style="font-weight:400;color:var(--color-muted)">AI</span></h1>
@@ -1473,7 +1510,13 @@
   <div class="app-shell">
     <aside class="app-sidebar" id="app-sidebar" aria-label="Navegación principal">
       <a href="#main-content" class="sidebar-logo" aria-label="EduInclusiva AI – inicio">
-        <span aria-hidden="true">🎓</span> EduInclusiva <span class="sidebar-logo-ai">AI</span>
+        <span class="brand-mark brand-mark-sm" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 4.2 21 8.6 12 13l-9-4.4 9-4.4Z" fill="url(#brand-gradient)" />
+            <path d="M6.5 10.6v3.9c0 1.6 2.46 3 5.5 3s5.5-1.4 5.5-3v-3.9" stroke="url(#brand-gradient)" stroke-width="1.5" stroke-linecap="round" fill="none" />
+          </svg>
+        </span>
+        EduInclusiva <span class="sidebar-logo-ai">AI</span>
       </a>
       <nav class="sidebar-nav" aria-label="Secciones">
         <button type="button" class="sidebar-link" onclick="navigateTo('lobby')">
@@ -1499,7 +1542,13 @@
     <div class="app-content">
   <header class="app-header" role="banner">
     <a href="#main-content" class="logo" aria-label="EduInclusiva AI – inicio">
-      🎓 EduInclusiva <span>AI</span>
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 4.2 21 8.6 12 13l-9-4.4 9-4.4Z" fill="url(#brand-gradient)" />
+          <path d="M6.5 10.6v3.9c0 1.6 2.46 3 5.5 3s5.5-1.4 5.5-3v-3.9" stroke="url(#brand-gradient)" stroke-width="1.5" stroke-linecap="round" fill="none" />
+        </svg>
+      </span>
+      EduInclusiva <span class="logo-ai-text">AI</span>
     </a>
 
     <div class="header-search distraction" role="search">
@@ -2438,12 +2487,77 @@
     <button type="button" class="btn btn-primary btn-sm" onclick="acceptConsent()">Entendido</button>
   </div>
 
-  
+
   <style>
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   </style>
 
-  
+
+  <!-- GSAP + ScrollTrigger: animaciones cinematográficas del dashboard docente.
+       Cargados desde el CDN oficial, con fallback silencioso (el resto de la
+       app no depende de esto para funcionar). -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
+  <script>
+    /* ══════════════════════════════════════════════
+       CINEMATIC SCROLL — parallax suave + expansión de tarjetas
+       Alcance deliberadamente acotado a #view-docente (la plataforma
+       estándar). Las interfaces especializadas (ceguera, auditivo, baja
+       visión, TDAH) están diseñadas para ser 100% estáticas y sin
+       distracciones — no reciben ningún efecto de esta sección, y todo el
+       sistema se desactiva por completo si el usuario pidió menos
+       movimiento en su sistema operativo.
+    ══════════════════════════════════════════════ */
+    (function () {
+      var reduceMotion = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduceMotion || typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+      gsap.registerPlugin(ScrollTrigger);
+      var ctx = null;
+
+      window._initCinematicScroll = function (route) {
+        if (ctx) { ctx.revert(); ctx = null; }
+        if (route !== 'docente') return;
+
+        var root = document.getElementById('view-docente');
+        if (!root) return;
+
+        ctx = gsap.context(function () {
+          // Tarjetas principales: aparecen con una leve expansión (scale + fade + y).
+          gsap.utils.toArray('#view-docente .docente-main-col .card').forEach(function (card) {
+            gsap.fromTo(card,
+              { opacity: 0, y: 40, scale: .97 },
+              {
+                opacity: 1, y: 0, scale: 1, duration: .65, ease: 'power2.out',
+                scrollTrigger: { trigger: card, start: 'top 90%', toggleActions: 'play none none reverse' },
+              }
+            );
+          });
+
+          // Panel lateral: parallax sutil (las tarjetas se desplazan más lento que el scroll).
+          gsap.utils.toArray('#view-docente .docente-side-card').forEach(function (card, i) {
+            gsap.fromTo(card,
+              { opacity: 0, y: 24 },
+              {
+                opacity: 1, y: 0, duration: .5, ease: 'power2.out', delay: i * .06,
+                scrollTrigger: { trigger: card, start: 'top 92%', toggleActions: 'play none none reverse' },
+              }
+            );
+            gsap.to(card, {
+              y: -16, ease: 'none',
+              scrollTrigger: { trigger: card, start: 'top bottom', end: 'bottom top', scrub: .6 },
+            });
+          });
+        }, root);
+
+        ScrollTrigger.refresh();
+      };
+
+      window.addEventListener('resize', function () { ScrollTrigger.refresh(); });
+    })();
+  </script>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

@@ -425,6 +425,48 @@
     }
   }
 
+  /* Panel lateral derecho del dashboard docente: últimas adaptaciones +
+     contadores, construidos a partir de S.historyCache (ya cargado por
+     showApp) — sin pedir nada nuevo al backend. */
+  function renderDocenteSidebar() {
+    const list = document.getElementById('docente-recent-activity');
+    const statMonth = document.getElementById('docente-stat-month');
+    const statTotal = document.getElementById('docente-stat-total');
+    if (!list || !statMonth || !statTotal) return;
+
+    const history = S.historyCache || [];
+    statTotal.textContent = String(history.length);
+    const now = new Date();
+    const thisMonthCount = history.filter(item => {
+      const d = new Date(item.timestamp);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }).length;
+    statMonth.textContent = String(thisMonthCount);
+
+    list.innerHTML = '';
+    if (history.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'docente-side-empty';
+      empty.textContent = 'Todavía no adaptaste ningún material.';
+      list.appendChild(empty);
+      return;
+    }
+    history.slice(0, 4).forEach(item => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'docente-recent-item';
+      btn.onclick = () => loadHistoryItem(item.id);
+      const title = document.createElement('strong');
+      title.textContent = item.title || '(sin título)';
+      const meta = document.createElement('span');
+      const dateStr = new Date(item.timestamp).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
+      meta.textContent = (PROFILE_NAMES[item.profile] || item.profile || '') + ' · ' + dateStr;
+      btn.appendChild(title);
+      btn.appendChild(meta);
+      list.appendChild(btn);
+    });
+  }
+
   function renderUserBadge(user) {
     const rawName = user.name || user.email || '';
     const initials = escHtml(rawName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase());
@@ -571,6 +613,7 @@
     if (route === 'docente') {
       const checked = document.querySelector('input[name="adaptation-profile"]:checked');
       applyProfile(checked ? checked.value : S.profile);
+      renderDocenteSidebar();
     } else if (route !== 'ajustes') {
       forceProfile(route);
     }
@@ -589,6 +632,7 @@
 
     window.scrollTo(0, 0);
     if (window._lucide) window._lucide.createIcons({ icons: window._lucide.icons });
+    window._initCinematicScroll?.(route);
     trackPageView(route);
   }
 
@@ -1634,6 +1678,7 @@
     };
     const saved = await db.saveToHistory(S.currentUser?.id, entry);
     S.historyCache = [saved, ...S.historyCache].slice(0, HISTORY_MAX);
+    renderDocenteSidebar();
   }
 
   function renderHistoryListUi(list) {
